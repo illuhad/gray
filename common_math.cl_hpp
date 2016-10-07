@@ -1,0 +1,220 @@
+#ifndef COMMON_MATH
+#define COMMON_MATH
+
+#ifndef __OPENCL_VERSION__ 
+#define HOST
+#endif
+
+#ifndef HOST
+typedef float scalar;
+typedef float3 vector3;
+#else
+#include "types.hpp"
+#include <cmath>
+#endif
+
+#ifdef HOST
+#define VECTOR3_X(vector) (vector.s[0])
+#define VECTOR3_Y(vector) (vector.s[1])
+#define VECTOR3_Z(vector) (vector.s[2])
+#define VECTOR3(x, y, z) {{x, y, z}}
+#else
+#define VECTOR3_X(vector) (vector.s0)
+#define VECTOR3_Y(vector) (vector.s1)
+#define VECTOR3_Z(vector) (vector.s2)
+#define VECTOR3(x,y,z) (vector3)(x, y, z)
+#endif
+
+
+// Define some math functions that are available in OpenCL C
+// but not in host code.
+#ifdef HOST
+namespace gray {
+
+inline
+vector3& operator+=(vector3& a, const vector3& b)
+{
+  a.s[0] += b.s[0];
+  a.s[1] += b.s[1];
+  a.s[2] += b.s[2];
+  return a;
+}
+
+inline
+vector3& operator-=(vector3& a, const vector3& b)
+{
+  a.s[0] -= b.s[0];
+  a.s[1] -= b.s[1];
+  a.s[2] -= b.s[2];
+  return a;
+}
+
+inline
+vector3 operator+(const vector3& a, const vector3& b)
+{
+  vector3 result = a;
+  result += b;
+  return result;
+}
+
+inline
+vector3 operator-(const vector3& a, const vector3& b)
+{
+  vector3 result = a;
+  result -= b;
+  return result;
+}
+
+inline
+vector3& operator*=(vector3& a, scalar s)
+{
+  a.s[0] *= s;
+  a.s[1] *= s;
+  a.s[2] *= s;
+  return a;
+}
+
+inline
+vector3 operator*(scalar s, const vector3& b)
+{
+  vector3 result = b;
+  result *= s;
+  return result;
+}
+
+inline
+vector3 operator*(const vector3& b, scalar s)
+{
+  return s * b;
+}
+
+
+namespace math {
+
+inline
+scalar dot(const vector3& a, const vector3& b)
+{
+  scalar result = 0.0f;
+  result += a.s[0] * b.s[0];
+  result += a.s[1] * b.s[1];
+  result += a.s[2] * b.s[2];
+  return result;
+}
+
+inline
+vector3 normalize(const vector3& v)
+{
+  return v * (1.f / std::sqrt(dot(v, v)));
+}
+
+inline
+vector3 cross(const vector3& a, const vector3& b)
+{
+  return VECTOR3(a.s[1] * b.s[2] - a.s[2] * b.s[1],
+                a.s[2] * b.s[0] - a.s[0] * b.s[2],
+                a.s[0] * b.s[1] - a.s[1] * b.s[0]);
+}
+
+#endif
+
+
+// Common matrix implementation for both host and device code
+typedef struct 
+{
+  vector3 row0;
+  vector3 row1;
+  vector3 row2;
+} matrix3x3;
+
+void matrix_create_identity(matrix3x3* m)
+{
+  m->row0 = VECTOR3(1, 0, 0);
+  m->row1 = VECTOR3(0, 1, 0);
+  m->row2 = VECTOR3(0, 0, 1);
+}
+
+void matrix_create_rotation_matrix(matrix3x3* m, vector3 axis, scalar alpha)
+{
+  scalar a1 = VECTOR3_X(axis);
+  scalar a2 = VECTOR3_Y(axis);
+  scalar a3 = VECTOR3_Z(axis);
+  scalar a1a2 = a1 * a2;
+  scalar a1a3 = a1 * a3;
+  scalar a2a3 = a2 * a3;
+  
+#ifdef HOST
+  scalar cos_alpha = std::cos(alpha);
+  scalar sin_alpha = std::sin(alpha);
+#else
+  scalar cos_alpha = cos(alpha);
+  scalar sin_alpha = sin(alpha);
+#endif
+  scalar flipped_cos_alpha = 1.f - cos_alpha;
+  
+  VECTOR3_X(m->row0) = a1*a1*flipped_cos_alpha + cos_alpha;
+  VECTOR3_Y(m->row0) = a1a2 *flipped_cos_alpha - a3*sin_alpha;
+  VECTOR3_Z(m->row0) = a1a3 *flipped_cos_alpha + a2*sin_alpha;
+  
+  VECTOR3_X(m->row1) = a1a2 *flipped_cos_alpha + a3*sin_alpha;
+  VECTOR3_Y(m->row1) = a2*a2*flipped_cos_alpha + cos_alpha;
+  VECTOR3_Z(m->row1) = a2a3 *flipped_cos_alpha - a1*sin_alpha;
+  
+  VECTOR3_X(m->row2) = a1a3 *flipped_cos_alpha - a2*sin_alpha;
+  VECTOR3_Y(m->row2) = a2a3 *flipped_cos_alpha + a1*sin_alpha;
+  VECTOR3_Z(m->row2) = a3*a3*flipped_cos_alpha + cos_alpha;
+}
+
+vector3 matrix_vector_mult(const matrix3x3* m, vector3 v)
+{
+  vector3 result;
+  VECTOR3_X(result) = dot(m->row0, v);
+  VECTOR3_Y(result) = dot(m->row1, v);
+  VECTOR3_Z(result) = dot(m->row2, v);
+  return result;
+}
+
+scalar det(const matrix3x3* m)
+{
+  scalar a00 = VECTOR3_X(m->row0);
+  scalar a01 = VECTOR3_Y(m->row0);
+  scalar a02 = VECTOR3_Z(m->row0);
+  scalar a10 = VECTOR3_X(m->row1);
+  scalar a11 = VECTOR3_Y(m->row1);
+  scalar a12 = VECTOR3_Z(m->row1);
+  scalar a20 = VECTOR3_X(m->row2);
+  scalar a21 = VECTOR3_Y(m->row2);
+  scalar a22 = VECTOR3_Z(m->row2);
+
+  return a00*a11*a22 + a01*a12*a20 + a02*a10*a21
+       - a02*a11*a20 - a01*a10*a22 - a00*a12*a21;
+}
+
+void matrix_create_inverse(matrix3x3* inv, const matrix3x3* A)
+{
+  scalar inv_detA = 1.f / det(A);
+      
+  scalar a = VECTOR3_X(A->row0);
+  scalar b = VECTOR3_Y(A->row0);
+  scalar c = VECTOR3_Z(A->row0);
+  scalar d = VECTOR3_X(A->row1);
+  scalar e = VECTOR3_Y(A->row1);
+  scalar f = VECTOR3_Z(A->row1);
+  scalar g = VECTOR3_X(A->row2);
+  scalar h = VECTOR3_Y(A->row2);
+  scalar i = VECTOR3_Z(A->row2);
+
+  inv->row0 = VECTOR3(e*i - f*h, c*h - b*i, b*f - c*e);
+  inv->row1 = VECTOR3(f*g - d*i, a*i - c*g, c*d - a*f);
+  inv->row2 = VECTOR3(d*h - e*g, b*g - a*h, a*e - b*d);
+
+  inv->row0 *= inv_detA;
+  inv->row1 *= inv_detA;
+  inv->row2 *= inv_detA;
+}
+
+#ifdef HOST
+} //gray
+} //math
+#endif
+
+#endif

@@ -1,0 +1,106 @@
+#ifndef COMMON_CL_HPP
+#define COMMON_CL_HPP
+
+#include "common_math.cl_hpp"
+
+#ifndef __OPENCL_VERSION__ 
+#define HOST
+#endif
+
+#ifdef HOST
+typedef cl_int portable_int;
+#else
+typedef int portable_int;
+#endif
+
+#ifdef HOST
+namespace gray{
+namespace device_object {
+#endif
+
+// The number of actual, geometric objects
+#define NUM_OBJECT_TYPES 3
+
+// Unfortunately, we cannot use an enum as object type
+// because the size of the underlying datatype may
+// be chosen by the compiler arbitrarily. This
+// could cause problems when transferring object_types
+// to the GPU (Imagine the enum having a different size
+// on host and device!)
+
+typedef portable_int object_type;
+#define OBJECT_TYPE_BACKGROUND 0
+#define OBJECT_TYPE_SURROUNDING_MEDIUM 1
+#define OBJECT_TYPE_CAMERA 2
+#define OBJECT_TYPE_SPHERE 3
+#define OBJECT_TYPE_PLANE 4
+#define OBJECT_TYPE_DISK_PLANE 5
+
+typedef portable_int object_id;
+
+typedef struct
+{
+  object_type type;
+  object_id   id;
+  portable_int local_id;
+  //Future: bounding box
+} object_entry;
+
+typedef struct
+{
+  vector3 position;
+  vector3 normal;
+} plane_geometry;
+
+/**************** Geometries ******************/
+typedef struct
+{
+  plane_geometry plane;
+  scalar  radius;
+} disk_geometry;
+
+typedef struct
+{
+  disk_geometry geometry;
+  scalar focal_length;
+} simple_lens_object;
+
+typedef struct
+{
+  vector3 position;
+  scalar radius;
+  vector3 polar_direction;
+  vector3 equatorial_basis1;
+  vector3 equatorial_basis2;
+} sphere_geometry;
+
+
+
+#define BACKGROUND_ID (-1)
+#define BACKGROUND_MATERIAL 0
+#define MEDIUM_ID (-2)
+
+#define CONCATENATE_NO_EXPAND(a, b) a ## b
+#define CONCATENATE(a, b) CONCATENATE_NO_EXPAND(a, b)
+
+#define OBJECT_NAME(geometry_type) CONCATENATE(object_,geometry_type)
+
+#define DEFINE_OBJECT_TYPE(geometry_type) \
+  typedef struct                          \
+  {                                       \
+    object_id id;                         \
+    portable_int material_id;             \
+    geometry_type geometry;               \
+  } OBJECT_NAME(geometry_type);
+
+
+DEFINE_OBJECT_TYPE(plane_geometry);
+DEFINE_OBJECT_TYPE(disk_geometry);
+DEFINE_OBJECT_TYPE(sphere_geometry);
+
+#ifdef HOST
+} // gray
+} // device_object
+#endif
+
+#endif
