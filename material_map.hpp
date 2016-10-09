@@ -4,7 +4,7 @@
 
 #include <cassert>
 #include "qcl.hpp"
-#include "types.hpp"
+#include "common.cl_hpp"
 
 
 namespace gray {
@@ -19,6 +19,9 @@ public:
   texture(float4* buffer, std::size_t width, std::size_t height)
   : _data{buffer}, _width{width}, _height{height}
   {}
+
+  texture(const texture &other) = default;
+  texture &operator=(const texture &other) = default;
 
   const float4& read(std::size_t x, std::size_t y) const
   {
@@ -104,7 +107,7 @@ namespace device_object {
 class material_db
 {
 public:
-  using material_map_id = std::size_t;
+  using material_map_id = portable_int;
 
   material_db(const qcl::const_device_context_ptr& ctx)
   : _ctx{ctx}
@@ -128,6 +131,8 @@ public:
       _host_offsets.push_back(0);
 
     _num_material_maps = _host_offsets.size();
+
+    return _num_material_maps - 1;
   }
 
   material_map get_material_map(material_map_id index)
@@ -147,7 +152,7 @@ public:
     return _num_material_maps;
   }
 
-  const cl::Buffer& get_scattered_fraction_map() const
+  const cl::Buffer& get_scattered_fraction() const
   {
     return _scattered_fraction;
   }
@@ -167,7 +172,7 @@ public:
     return _width;
   }
 
-  const cl::Buffer& get_height() const
+  const cl::Buffer& get_heights() const
   {
     return _height;
   }
@@ -177,12 +182,16 @@ public:
     return _offsets;
   }
 
-  void commit_changes()
+  void transfer_data()
   {
+    if(this->_num_material_maps == 0)
+      return;
+
     // Resize buffers and perform full data transfer
+    
     _ctx->create_input_buffer<float4>(_scattered_fraction,
                                       _host_scattered_fraction.size(),
-                                      _host_scattered_fraction.data());
+                                      _host_scattered_fraction.data());                                 
     _ctx->create_input_buffer<float4>(_emitted_light,
                                       _host_emitted_light.size(),
                                       _host_emitted_light.data());
@@ -233,8 +242,8 @@ private:
   qcl::const_device_context_ptr _ctx;
 };
 
+} // device_object
 
-}
-}
+} // gray
 
 #endif

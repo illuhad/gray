@@ -12,10 +12,16 @@ namespace device_object {
 class random_engine
 {
 public:
+  static std::size_t generate_seed()
+  {
+    std::random_device rd;
+    return rd();
+  }
+
   random_engine(const qcl::device_context_ptr& ctx,
                    std::size_t width, std::size_t height, 
                    std::size_t seed)
-  : _ctx(ctx), _gen(seed)
+  : _ctx{ctx}, _gen{seed}
   {
     init(width, height);
   }

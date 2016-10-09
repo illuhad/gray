@@ -6,6 +6,7 @@
 #include "types.hpp"
 #include "common.cl_hpp"
 #include "qcl.hpp"
+#include "material_map.hpp"
 
 namespace gray {
 namespace device_object {
@@ -125,6 +126,97 @@ private:
 class scene
 {
 public:
+  scene(const qcl::const_device_context_ptr& ctx,
+        std::size_t background_texture_width,
+        std::size_t background_texture_height)
+  : _ctx{ctx}, _materials{ctx}
+  {
+    // Allocate background map
+    _materials.allocate_material_map(background_texture_width,
+                                    background_texture_height);
+  }
+
+  scene(const scene& other) = delete;
+  scene &operator=(const scene &other) = delete;
+
+  void add_sphere(const vector3& position,
+                  const vector3& polar_direction,
+                  const vector3& equatorial_direction,
+                  scalar radius,
+                  portable_int material_id)
+  {
+    object_sphere_geometry geometry;
+    geometry.geometry.position = position;
+    geometry.geometry.radius = radius;
+    geometry.geometry.equatorial_basis1 = equatorial_direction;
+    geometry.geometry.equatorial_basis2 = math::cross(polar_direction, equatorial_direction);
+    geometry.geometry.polar_direction = polar_direction;
+    geometry.material_id = material_id;
+    geometry.id = static_cast<portable_int>(_host_objects.size());
+
+    object_entry entry;
+    entry.id = static_cast<portable_int>(_host_objects.size());
+    entry.local_id = static_cast<portable_int>(_host_spheres.size());
+    entry.type = OBJECT_TYPE_SPHERE;
+
+    _host_objects.push_back(entry);
+    _host_spheres.push_back(geometry);
+  }
+
+  void add_plane(const vector3& position,
+                  const vector3& normal,
+                  portable_int material_id)
+  {
+    object_plane_geometry geometry;
+    geometry.geometry.position = position;
+    geometry.geometry.normal = normal;
+    geometry.material_id = material_id;
+    geometry.id = static_cast<portable_int>(_host_objects.size());
+
+    object_entry entry;
+    entry.id = static_cast<portable_int>(_host_objects.size());
+    entry.local_id = static_cast<portable_int>(_host_planes.size());
+    entry.type = OBJECT_TYPE_PLANE;
+
+    _host_objects.push_back(entry);
+    _host_planes.push_back(geometry);
+  }
+
+  void add_disk(const vector3& position,
+                const vector3& normal,
+                scalar radius,
+                portable_int material_id)
+  {
+    object_disk_geometry geometry;
+    geometry.geometry.radius = radius;
+    geometry.geometry.plane.position = position;
+    geometry.geometry.plane.normal = normal;
+    geometry.material_id = material_id;
+    geometry.id = static_cast<portable_int>(_host_objects.size());
+
+    object_entry entry;
+    entry.id = static_cast<portable_int>(_host_objects.size());
+    entry.local_id = static_cast<portable_int>(_host_disks.size());
+    entry.type = OBJECT_TYPE_DISK_PLANE;
+
+    _host_objects.push_back(entry);
+    _host_disks.push_back(geometry);
+  }
+
+  material_map access_background_map()
+  {
+    return _materials.get_material_map(0);
+  }
+
+  const material_db& get_materials() const
+  {
+    return _materials;
+  }
+
+  material_db& get_materials()
+  {
+    return _materials;
+  }
 
   int get_num_spheres() const
   {
@@ -166,7 +258,34 @@ public:
     return _disks;
   }
 
+  /// Performs a full data transfer to the device
+  void transfer_data()
+  {
+    _materials.transfer_data();
+    if (!_host_objects.empty())
+    {
+      _ctx->create_input_buffer<object_entry>(_objects,
+                                              _host_objects.size(),
+                                              _host_objects.data());
+
+      if (!_host_spheres.empty())
+        _ctx->create_input_buffer<object_sphere_geometry>(_spheres,
+                                                          _host_spheres.size(),
+                                                          _host_spheres.data());
+      if(!_host_planes.empty())
+        _ctx->create_input_buffer<object_plane_geometry>(_planes,
+                                                         _host_planes.size(),
+                                                         _host_planes.data());
+      if(!_host_disks.empty())
+        _ctx->create_input_buffer<object_disk_geometry>(_disks,
+                                                        _host_disks.size(),
+                                                        _host_disks.data());
+    }
+  }
+
 private:
+  qcl::const_device_context_ptr _ctx;
+
   std::vector<object_entry> _host_objects;
   std::vector<object_sphere_geometry> _host_spheres;
   std::vector<object_plane_geometry> _host_planes;
@@ -178,8 +297,9 @@ private:
   cl::Buffer _spheres;
   cl::Buffer _planes;
   cl::Buffer _disks;
-};
 
+  material_db _materials;
+};
 }
 }
 

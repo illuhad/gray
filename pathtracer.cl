@@ -114,16 +114,17 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                           __global int *random_state,
                           camera cam,
                           int rays_per_pixel,
+
                           // Scene definition
                           __global object_entry *objects,
                           __global object_sphere_geometry *spheres,
                           __global object_plane_geometry *planes,
                           __global object_disk_geometry *disks,
-                          int num_objects,
                           int num_spheres,
                           int num_planes,
                           int num_disks,
                           float far_clipping_distance;
+                          
                           // Material Database
                           __global float4 * scattered_fraction_maps,
                           __global float4 *emitted_light_maps,
