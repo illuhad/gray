@@ -34,8 +34,14 @@ include_directories(${PROJECT_BINARY_DIR} ${OPENGL_INCLUDE_DIRS}  ${GLUT_INCLUDE
 	
 add_executable(gray_cl cl_gl.cpp gl_renderer.cpp gray_cl.cpp image.cpp)
 target_link_libraries (gray_cl ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} ${PNG_LIBRARY} ${GLEW_LIBRARIES} ${OpenCL_LIBRARIES})
+# Copy CL sources
+add_custom_command(TARGET gray_cl POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy
+                       ${CMAKE_SOURCE_DIR}/*.cl $<TARGET_FILE_DIR:gray_cl>)
 
-
+add_custom_command(TARGET gray_cl POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy
+                       ${CMAKE_SOURCE_DIR}/*.cl_hpp $<TARGET_FILE_DIR:gray_cl>)
 
 
 

@@ -108,6 +108,7 @@ intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
       // ray is absorbed
       return r->energy;
   }
+  return (vector3)(0,0,0);
 }
 
 __kernel void trace_paths(__write_only image2d_t pixels,
@@ -123,7 +124,7 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                           int num_spheres,
                           int num_planes,
                           int num_disks,
-                          float far_clipping_distance;
+                          float far_clipping_distance,
                           
                           // Material Database
                           __global float4 * scattered_fraction_maps,

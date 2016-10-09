@@ -32,8 +32,12 @@ public:
   {
     gl_renderer::instance().on_display([this]() { display(); });
     gl_renderer::instance().on_reshape([this](int width, int height) {
-      update_resolution(static_cast<std::size_t>(width),
-                        static_cast<std::size_t>(height));
+      if (_renderer.get_resolution_width() != static_cast<std::size_t>(width) ||
+          _renderer.get_resolution_height() != static_cast<std::size_t>(height))
+      {
+        update_resolution(static_cast<std::size_t>(width),
+                          static_cast<std::size_t>(height));
+      }
     });
   }
 
@@ -53,10 +57,16 @@ private:
   {
     auto rendering_call =
         [this](const cl::ImageGL &pixels, std::size_t width, std::size_t height) {
-          
-          update_resolution(width, height);
 
-          _renderer.render(pixels, *_scene, *_camera);
+          if (_renderer.get_resolution_width() == width ||
+              _renderer.get_resolution_height() == height)
+          {
+            // Only render if we haven't changed resolution. This ensures
+            // that we are not using pixels which may have become invalid
+            // during the resolution change in case display() is called
+            // before the reshape event.
+            _renderer.render(pixels, *_scene, *_camera);
+          }
         };
 
     _cl_gl_interoperability->display(rendering_call,
@@ -66,11 +76,8 @@ private:
 
   void update_resolution(std::size_t width, std::size_t height)
   {
-    if (_renderer.get_resolution_width() != width ||
-        _renderer.get_resolution_height() != height)
-    {
-      _renderer.set_resolution(width, height);
-    }
+    _renderer.set_resolution(width, height);
+    _cl_gl_interoperability->rebuild_buffers();
   }
 
   cl_gl *_cl_gl_interoperability;

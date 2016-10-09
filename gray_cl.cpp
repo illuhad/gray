@@ -87,12 +87,28 @@ int main(int argc, char* argv[])
 
   // Initialise OpenCL
   qcl::environment env;
+  for(std::size_t i = 0; i < env.get_num_platforms(); ++i)
+  {
+    std::cout << "Platform " << i << ": " 
+              << env.get_platform_name(env.get_platform(i))
+              << " ["<< env.get_platform_vendor(env.get_platform(i)) <<"]"
+              << std::endl;
+  }
+
+
   qcl::global_context_ptr global_ctx = env.create_global_gl_shared_context();
 
   if(global_ctx->get_num_devices() == 0)
   {
     std::cout << "No suitable OpenCL devices!" << std::endl;
     return -1;
+  }
+  else
+  {
+    std::cout << "Found " << global_ctx->get_num_devices() << " device(s):" << std::endl;
+    for(std::size_t i = 0; i < global_ctx->get_num_devices(); ++i)
+      std::cout << "    Device " << i << ": " 
+                << global_ctx->device(i)->get_device_name() << std::endl; 
   }
   // Compile sources
   global_ctx->global_register_source_file("pathtracer.cl",{"trace_paths"});
