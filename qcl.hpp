@@ -225,7 +225,12 @@ public:
       else
         flags |= CL_MEM_USE_HOST_PTR;
     }
-    
+    else
+    {
+      if(initial_data)
+        flags |= CL_MEM_COPY_HOST_PTR;
+    }
+
     cl_int err;
     buffer_ptr buff = buffer_ptr(new cl::Buffer(_context, flags, size * sizeof(T), initial_data, &err));
     check_cl_error(err, "Could not create buffer object!");
@@ -246,6 +251,11 @@ public:
         flags |= CL_MEM_ALLOC_HOST_PTR;
       else
         flags |= CL_MEM_USE_HOST_PTR;
+    }
+    else
+    {
+      if(initial_data)
+        flags |= CL_MEM_COPY_HOST_PTR;
     }
     
     cl_int err;

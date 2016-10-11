@@ -16,7 +16,7 @@ public:
                 std::size_t render_width,
                 std::size_t render_height,
                 std::size_t random_seed = device_object::random_engine::generate_seed())
-  : _target_fps{24.0}, _current_fps{0.0}, _num_rays_ppx{100}, _ctx{ctx},
+  : _target_fps{24.0}, _current_fps{0.0}, _num_rays_ppx{10}, _ctx{ctx},
     _width(render_width), _height(render_height),
     _random{ctx, render_width, render_height, random_seed},
     _kernel{ctx->get_kernel(kernel_name)}
@@ -95,12 +95,24 @@ public:
     _kernel->setArg(17, s.get_materials().get_offsets());
     _kernel->setArg(18, s.get_materials().get_num_material_maps());
 
-    _ctx->get_command_queue().enqueueNDRangeKernel(*_kernel,
-                                                   cl::NullRange,
-                                                   cl::NDRange(_width, _height),
-                                                   cl::NDRange(8, 8),
-                                                   NULL,
-                                                   &event);
+    std::cout << "Starting kernel, nrays ppx = " << _num_rays_ppx << std::endl;
+
+    // Size of work group must divide number of work items
+    std::size_t effective_width = _width;
+    std::size_t effective_height = _height;
+    if(effective_width % _work_group_size != 0)
+      effective_width = (_width / _work_group_size + 1) * _work_group_size;
+    if(effective_height % _work_group_size != 0)
+      effective_height = (_height / _work_group_size + 1) * _work_group_size;
+
+    cl_int err = _ctx->get_command_queue().enqueueNDRangeKernel(*_kernel,
+                                                                cl::NullRange,
+                                                                cl::NDRange(effective_width, effective_height),
+                                                                cl::NDRange(_work_group_size, _work_group_size),
+                                                                NULL,
+                                                                &event);
+    qcl::check_cl_error(err, "Could not enqueue kernel call!");
+
     event.wait();
 
     double time = t.stop();
@@ -108,6 +120,9 @@ public:
     _current_fps = 1.0 / time;
     _num_rays_ppx = static_cast<portable_int>(_num_rays_ppx /
                                               (time * _target_fps));
+    if(_num_rays_ppx < 200)
+      _num_rays_ppx = 200;
+    std::cout << time << " " << _current_fps << " " << _num_rays_ppx << std::endl;
   }
 
   const qcl::device_context_ptr& get_current_context() const
@@ -132,6 +147,8 @@ private:
   device_object::random_engine _random;
 
   qcl::kernel_ptr _kernel;
+
+  static constexpr std::size_t _work_group_size = 8;
 };
 }
 

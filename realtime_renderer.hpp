@@ -15,7 +15,8 @@ public:
                          cl_gl* cl_gl_interoperability,
                          const device_object::scene* s,
                          const device_object::camera* cam)
-  : _scene{s}, _camera{cam},
+  : _cl_gl_interoperability{cl_gl_interoperability},
+    _scene{s}, _camera{cam},
     _renderer
     {
       ctx, 

@@ -17,8 +17,9 @@ setup_scene(const qcl::device_context_ptr& ctx)
   // Create materials
   auto material1 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto material2 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto emitting_material = 
-                   scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto material3 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto emitting_material =
+      scene_ptr->get_materials().allocate_material_map(1024, 1024);
 
   gray::material_factory material_fac{&(scene_ptr->get_materials())};
 
@@ -28,29 +29,39 @@ setup_scene(const qcl::device_context_ptr& ctx)
 
   material_fac.create_uniform_emissive_material(
       scene_ptr->access_background_map(),
-      {{0.04f, 0.06f, 0.1f}});
+      {{0.1f, 0.08f, 0.15f}});
 
   material_fac.create_uniform_material(
       material1,
-      {{0.5f, 0.6f, 0.8f}},
-      0.0f, 1.0f, 1.0f);
+      {{1.0f, 1.0f, 1.0f}},
+      1.0f, 2.0f, 1.e5f);
   
   material_fac.create_uniform_material(
       material2,
       {{0.5f, 0.8f, 0.2f}},
-      0.0f, 1.0f, 3.0f);
-  
+      0.0f, 1.0f, 1.0f);
+
+  material_fac.create_uniform_material(
+      material3,
+      {{0.8f, 0.2f, 0.4f}},
+      0.0f, 1.0f, 0.0f);
+
   scene_ptr->add_sphere({{0.0, 0.0, 0.0}}, 
                         {{0.0, 0.0, 1.0}}, 
-                        {{1.0, 0.0, 0.0}},
+                        {{1.0, 0.0, 1.0}},
                         1.0, material1);
   scene_ptr->add_plane({{0.0, 0.0, -1.0}},
                        {{0.0, 0.0, 1.0}},
                        material2);
+
+  scene_ptr->add_plane({{2.0, 0.0, 0.0}},
+                       {{-1.0, 0.0, 0.0}},
+                       material3);
   // Use this for light emission
-  scene_ptr->add_disk({{-3.0, 0.0, 2.0}},
+
+  scene_ptr->add_disk({{-2.0, 0.0, 2.0}},
                       {{1.0, 0.0, 0.0}},
-                      2.0, emitting_material);
+                      10.0, emitting_material);
 
   scene_ptr->transfer_data();
 
@@ -62,7 +73,7 @@ setup_camera(const qcl::device_context_ptr& ctx)
 {
   using namespace gray;
 
-  vector3 camera_pos = {{0.0, -3.0, 2.0}};
+  vector3 camera_pos = {{0.0, -10.5, 2.0}};
   vector3 look_at = -1.f * camera_pos;
   look_at = math::normalize(look_at);
   
@@ -71,8 +82,8 @@ setup_camera(const qcl::device_context_ptr& ctx)
           camera_pos,
           look_at,
           0.0, // roll angle
-          1.0, // aperture
-          3.0  // focal length
+          0.001f, // aperture
+          10.0  // focal length
           );
 
   return camera_ptr;

@@ -15,13 +15,14 @@ class camera
 {
 public:
   camera(vector3 position, vector3 look_at, scalar roll_angle,
-        scalar aperture, scalar focal_length)
+        scalar aperture, scalar focal_plane_distance)
   : _lens_plane_distance{1.0f},
     _roll_angle{roll_angle}
   {
+    assert(aperture > 0.0);
     _camera_lens.geometry.plane.position = position;
     _camera_lens.geometry.radius = aperture;
-    _camera_lens.focal_length = focal_length;
+    set_focal_plane_distance(focal_plane_distance);
     set_look_at(look_at);
   }
 
@@ -49,8 +50,8 @@ public:
     math::matrix3x3 roll_matrix;
     math::matrix_create_rotation_matrix(&roll_matrix, _look_at, _roll_angle);
 
-    this->_screen_basis1 = matrix_vector_mult(&roll_matrix, v1);
-    this->_screen_basis2 = matrix_vector_mult(&roll_matrix, v2);
+    this->_screen_basis1 = matrix_vector_mult(&roll_matrix, v2);
+    this->_screen_basis2 = matrix_vector_mult(&roll_matrix, v1);
 
 
 /*#ifndef WITH_LIGHT_RAYS
@@ -107,9 +108,9 @@ public:
     return _camera_lens.geometry.radius;
   }
 
-  void set_focal_length(scalar focal_length)
+  void set_focal_plane_distance(scalar focal_plane_distance)
   {
-    _camera_lens.focal_length = focal_length;
+    _camera_lens.focal_length = 1.f / (1.f / focal_plane_distance + 1.f / _lens_plane_distance);
   }
 
 private:
@@ -128,8 +129,11 @@ class scene
 public:
   scene(const qcl::const_device_context_ptr& ctx,
         std::size_t background_texture_width,
-        std::size_t background_texture_height)
-  : _ctx{ctx}, _materials{ctx}
+        std::size_t background_texture_height,
+        scalar far_clipping_distance = 1.e5f)
+  : _ctx{ctx}, 
+    _far_clipping_distance{far_clipping_distance},
+    _materials{ctx}
   {
     // Allocate background map
     _materials.allocate_material_map(background_texture_width,

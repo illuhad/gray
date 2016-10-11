@@ -46,6 +46,7 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
   // Generate a sample for the direction
   scalar x,y;
   scalar r2 = ctx->camera_lens.geometry.radius * ctx->camera_lens.geometry.radius;
+
   do
   {
     x = random_uniform_scalar_minmax(rand, 
@@ -54,8 +55,8 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
     y = random_uniform_scalar_minmax(rand, 
                                      -ctx->camera_lens.geometry.radius,
                                      ctx->camera_lens.geometry.radius);
-  } while(x*x + y*y > r2);
-  
+  } while (x * x + y * y > r2);
+
   vector3 lens_sample = simple_lens_object_get_center(&(ctx->camera_lens));
   lens_sample += x * ctx->screen_basis1;
   lens_sample += y * ctx->screen_basis2;
@@ -66,18 +67,21 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
   r->origin_vertex.position = origin;
   r->origin_vertex.normal = -1.f * ctx->look_at;
   
-  r->energy = (intensity)(1,1,1);
-  
+  r->energy = (intensity)(1, 1, 1);
+
   path_vertex impact;
+  disk_geometry_intersects(&(ctx->camera_lens.geometry), r, &impact);
   simple_lens_object_propagate_ray(&(ctx->camera_lens), &impact, rand, r);
+
 }
 
 intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
 {
   path_vertex next_intersection;
-  for (int i = 0; i < 256; ++i) // we will never really iterate to the end
+  for (int i = 0; i < 5; ++i) // we will never really iterate to the end
   {
     scene_get_nearest_intersection(s, r, &next_intersection);
+
     material *interacting_material;
     if (dot(next_intersection.normal, r->direction) < 0.f)
       // Incoming ray
@@ -95,18 +99,24 @@ intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
     intensity effective_bsdf = 
       interacting_material->scattered_fraction * (1.f / russian_roulette_probability);
 
-    r->energy *= effective_bsdf;
-    r->energy += interacting_material->emitted_light;
+    if(interacting_material->emitted_light.x != 0.0f || 
+      interacting_material->emitted_light.y != 0.0f || 
+      interacting_material->emitted_light.z != 0.0f)
+      return r->energy * interacting_material->emitted_light;
+    r->energy *= interacting_material->scattered_fraction;
 
-    if(random_uniform_scalar(rand) < russian_roulette_probability)
-      // continue
+    //r->energy += interacting_material->emitted_light;
+
+
+    //if(random_uniform_scalar(rand) < russian_roulette_probability)
+    // continue
       material_propagate_ray(interacting_material,
                              &next_intersection,
                              rand,
                              r);
-    else
+    //else
       // ray is absorbed
-      return r->energy;
+    //  return (vector3)(0,0,0);
   }
   return (vector3)(0,0,0);
 }
@@ -132,53 +142,56 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                           __global float4 *transmittance_refraction_specular_maps,
                           __global int *widths,
                           __global int *heights,
-                          __global unsigned long long *offsets,
+                          __global unsigned long *offsets,
                           int num_material_maps)
 {
   // Get resolution of render window
   int width = get_image_width(pixels);
   int height = get_image_height(pixels);
 
-  // Initialize scene object
-  int num_objects = num_spheres + num_planes + num_disks;
-  scene s;
-  scene_init(&s, objects, num_objects,
-             spheres, num_spheres,
-             planes, num_planes,
-             disks, num_disks,
-             far_clipping_distance);
-
-  s.materials.scattered_fraction = scattered_fraction_maps;
-  s.materials.emitted_light = emitted_light_maps;
-  s.materials.transmittance_refraction_specular = 
-              transmittance_refraction_specular_maps;
-  s.materials.width = widths;
-  s.materials.height = heights;
-  s.materials.offsets = offsets;
-  s.materials.num_material_maps = num_material_maps;
-
   // Determine which pixel this thread will process
   int px_x = get_global_id(0);
   int px_y = get_global_id(1);
 
-  // Actual work starts here
-  intensity pixel_value = (intensity)(0,0,0);
-  ray r;
-  for(int i = 0; i < rays_per_pixel; ++i)
+  if(px_x < width && px_y < height)
   {
-    camera_generate_ray(&cam, random_state, width, height, px_x, px_y, &r);
-    
-    pixel_value += evaluate_ray(&r, random_state, &s);
+    // Initialize scene object
+    int num_objects = num_spheres + num_planes + num_disks;
+    scene s;
+    scene_init(&s, objects, num_objects,
+               spheres, num_spheres,
+               planes, num_planes,
+               disks, num_disks,
+               far_clipping_distance);
+
+    s.materials.scattered_fraction = scattered_fraction_maps;
+    s.materials.emitted_light = emitted_light_maps;
+    s.materials.transmittance_refraction_specular =
+        transmittance_refraction_specular_maps;
+    s.materials.width = widths;
+    s.materials.height = heights;
+    s.materials.offsets = offsets;
+    s.materials.num_material_maps = num_material_maps;
+
+    // Actual work starts here
+    intensity pixel_value = (intensity)(0, 0, 0);
+    ray r;
+    for (int i = 0; i < rays_per_pixel; ++i)
+    {
+      camera_generate_ray(&cam, random_state, width, height, px_x, px_y, &r);
+
+      pixel_value += evaluate_ray(&r, random_state, &s);
+    }
+    pixel_value /= (scalar)rays_per_pixel;
+
+    // Save result
+    int2 coord = (int2)(px_x, px_y);
+
+    rgba_color color;
+    color.xyz = pixel_value;
+    color.w = 1.f;
+    write_imagef(pixels, coord, color);
   }
-  pixel_value /= (scalar)rays_per_pixel;
-  
-  // Save result
-  int2 coord = (int2)(px_x, px_y);
-  
-  rgba_color color;
-  color.xyz = pixel_value;
-  color.w = 1.f;
-  write_imagef(pixels, coord, color);
 }
 
 #endif

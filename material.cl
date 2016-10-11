@@ -49,19 +49,21 @@ float4 array2d_extract_interpolated(__global const float4* ctx,
 material material_map_get_material(const material_map *ctx,
                                    float2 coord)
 {
+  float2 clamped_coord = (float2)(clamp(coord.x, 0.0f, 1.0f), 
+                                  clamp(coord.y, 0.0f, 1.0f));
   material mat;
   float4 scattered_fraction_data =
       array2d_extract_interpolated(ctx->scattered_fraction,
                                    ctx->width, ctx->height,
-                                   coord);
+                                   clamped_coord);
   float4 emitted_light_data =
       array2d_extract_interpolated(ctx->emitted_light,
                                    ctx->width, ctx->height,
-                                   coord);
+                                   clamped_coord);
   float4 transmittance_refraction_spec_data =
       array2d_extract_interpolated(ctx->transmittance_refraction_specular,
                                    ctx->width, ctx->height,
-                                   coord);
+                                   clamped_coord);
 
   mat.scattered_fraction = scattered_fraction_data.xyz;
   mat.emitted_light = emitted_light_data.xyz;
@@ -193,7 +195,7 @@ void material_propagate_ray(const material* ctx,
                                                  anti_incident_normal, 
                                                  r->direction);
   
-  vector3 outgoing_normal = impact->normal;
+  vector3 outgoing_normal = anti_incident_normal;
   vector3 cosine_center;
   if(random_uniform_scalar(rand) > (1.f - reflectance) * ctx->transmittance)
   {
@@ -221,8 +223,8 @@ void material_propagate_ray(const material* ctx,
     new_direction = random_power_cosine(rand, cosine_center, ctx->specular_power);
     cos_theta = fabs(dot(impact->normal, new_direction));
   } while(random_uniform_scalar(rand) > cos_theta);
-  
-  
+  material_remap_to_hemisphere(ctx, outgoing_normal, &new_direction);
+
   r->direction = new_direction;
   r->origin_vertex = *impact;
   r->origin_vertex.position += self_shadowing_epsilon * outgoing_normal;

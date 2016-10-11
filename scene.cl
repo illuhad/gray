@@ -152,6 +152,7 @@ void scene_get_nearest_intersection(const scene* ctx, const ray* r, path_vertex*
                                        hit_material,
                                        r, vertex);
 
+
   object_entry medium;
   material medium_material;
 

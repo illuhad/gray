@@ -128,16 +128,19 @@ public:
     if(!_host_offsets.empty())
       _host_offsets.push_back(_host_offsets.back() + num_texels);
     else
+    {
       _host_offsets.push_back(0);
+      _host_offsets.push_back(num_texels);
+    }
 
-    _num_material_maps = _host_offsets.size();
+    _num_material_maps = _host_offsets.size() - 1;
 
     return _num_material_maps - 1;
   }
 
   material_map get_material_map(material_map_id index)
   {
-    assert(index < static_cast<std::size_t>(_num_material_maps));
+    assert(index < static_cast<std::size_t>(_host_offsets.size()));
 
     cl_ulong offset = _host_offsets[index];
     return material_map(_host_scattered_fraction.data() + offset, 
@@ -184,7 +187,7 @@ public:
 
   void transfer_data()
   {
-    if(this->_num_material_maps == 0)
+    if (this->_num_material_maps == 0)
       return;
 
     // Resize buffers and perform full data transfer

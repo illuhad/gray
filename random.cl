@@ -5,13 +5,13 @@
 
 typedef __global int random_ctx;
 
-__constant const int random_max = 2147483647;
-__constant const int random_a = 16807;
+__constant const unsigned random_max = 2147483647;
+__constant const unsigned long random_a = 16807;
 
 int random_serial_int(int* state)
 {
   int s = *state;
-  s = ((long)(s * random_a)) % random_max;
+  s = ((unsigned long)(s) * random_a) % random_max;
   *state = s;
   
   return s;
@@ -60,8 +60,8 @@ vector3 random_uniform_sphere(random_ctx* ctx)
   scalar r;
   do
   {
-    x1 = 2.f * random_uniform_scalar(ctx) + 1.f;
-    x2 = 2.f * random_uniform_scalar(ctx) + 1.f;
+    x1 = 2.f * random_uniform_scalar(ctx) - 1.f;
+    x2 = 2.f * random_uniform_scalar(ctx) - 1.f;
     r = x1 * x1;
     r += x2 * x2;
   } while(r >= 1.f);
