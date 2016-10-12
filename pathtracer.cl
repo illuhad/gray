@@ -42,7 +42,7 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
   vector3 origin = ctx->position;
   origin += (px_relative_to_center_x - 0.5f + position_in_pixel_x) * px_size * ctx->screen_basis1;
   origin += (px_relative_to_center_y - 0.5f + position_in_pixel_y) * px_size * ctx->screen_basis2;
-  origin -= ctx->lens_plane_distance * ctx->look_at;
+  //origin -= ctx->lens_plane_distance * ctx->look_at;
   // Generate a sample for the direction
   scalar x,y;
   scalar r2 = ctx->camera_lens.geometry.radius * ctx->camera_lens.geometry.radius;
@@ -121,7 +121,13 @@ intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
   return (vector3)(0,0,0);
 }
 
+__constant sampler_t pixel_sampler = CLK_NORMALIZED_COORDS_FALSE | 
+                                     CLK_ADDRESS_CLAMP_TO_EDGE |
+                                     CLK_FILTER_NEAREST;
+
 __kernel void trace_paths(__write_only image2d_t pixels,
+                          __read_only image2d_t current_render_state, //output of previous kernel
+                          int num_previous_rays,
                           __global int *random_state,
                           camera cam,
                           int rays_per_pixel,
@@ -182,16 +188,22 @@ __kernel void trace_paths(__write_only image2d_t pixels,
 
       pixel_value += evaluate_ray(&r, random_state, &s);
     }
-    pixel_value /= (scalar)rays_per_pixel;
 
     // Save result
     int2 coord = (int2)(px_x, px_y);
 
+    rgba_color previous_result = read_imagef(current_render_state, pixel_sampler, coord);
+    scalar total_ray_number = (scalar)rays_per_pixel + (scalar)num_previous_rays;
+
     rgba_color color;
-    color.xyz = pixel_value;
+    color.xyz = pixel_value / total_ray_number;
+    color += previous_result * (scalar)num_previous_rays / total_ray_number;
     color.w = 1.f;
+
     write_imagef(pixels, coord, color);
   }
 }
+
+
 
 #endif

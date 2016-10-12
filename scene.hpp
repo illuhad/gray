@@ -43,18 +43,15 @@ public:
       v1 = VECTOR3(1, 0, 0);
     }
 
-    v1 -= math::dot(v1, _look_at) * _look_at;
-    v1 = math::normalize(v1);
-
+    v1 = math::cross(v1, _look_at);
     vector3 v2 = math::cross(_look_at, v1);
     math::matrix3x3 roll_matrix;
     math::matrix_create_rotation_matrix(&roll_matrix, _look_at, _roll_angle);
 
-    this->_screen_basis1 = matrix_vector_mult(&roll_matrix, v2);
-    this->_screen_basis2 = matrix_vector_mult(&roll_matrix, v1);
+    this->_screen_basis1 = matrix_vector_mult(&roll_matrix, v1);
+    this->_screen_basis2 = matrix_vector_mult(&roll_matrix, v2);
 
-
-/*#ifndef WITH_LIGHT_RAYS
+    /*#ifndef WITH_LIGHT_RAYS
     matrix3x3 basis_matrix;
     basis_matrix.row0 = (vector3)(ctx->screen_basis1.x, ctx->screen_basis2.x, look_at.x);
     basis_matrix.row1 = (vector3)(ctx->screen_basis1.y, ctx->screen_basis2.y, look_at.y);
@@ -85,7 +82,17 @@ public:
 
   vector3 get_position() const
   {
-    return _position;
+    return _camera_lens.geometry.plane.position;
+  }
+
+  vector3 get_screen_basis1() const
+  {
+    return _screen_basis1;
+  }
+
+  vector3 get_screen_basis2() const
+  {
+    return _screen_basis2;
   }
 
   scalar get_roll_angle() const
@@ -111,6 +118,11 @@ public:
   void set_focal_plane_distance(scalar focal_plane_distance)
   {
     _camera_lens.focal_length = 1.f / (1.f / focal_plane_distance + 1.f / _lens_plane_distance);
+  }
+
+  scalar get_focal_plane_distance() const
+  {
+    return 1.f / (1.f / _camera_lens.focal_length - 1.f / _lens_plane_distance);
   }
 
 private:

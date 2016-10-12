@@ -140,7 +140,7 @@ public:
 
   material_map get_material_map(material_map_id index)
   {
-    assert(index < static_cast<std::size_t>(_host_offsets.size()));
+    assert(static_cast<std::size_t>(index) < _host_offsets.size());
 
     cl_ulong offset = _host_offsets[index];
     return material_map(_host_scattered_fraction.data() + offset, 
@@ -150,9 +150,9 @@ public:
                         static_cast<std::size_t>(_host_heights[index]));
   }
 
-  int get_num_material_maps() const
+  cl_int get_num_material_maps() const
   {
-    return _num_material_maps;
+    return static_cast<cl_int>(_num_material_maps);
   }
 
   const cl::Buffer& get_scattered_fraction() const

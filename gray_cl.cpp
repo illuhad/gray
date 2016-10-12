@@ -82,8 +82,8 @@ setup_camera(const qcl::device_context_ptr& ctx)
           camera_pos,
           look_at,
           0.0, // roll angle
-          0.001f, // aperture
-          10.0  // focal length
+          0.1f, // aperture
+          std::sqrt(math::dot(camera_pos, camera_pos))  // focal length
           );
 
   return camera_ptr;
@@ -121,9 +121,13 @@ int main(int argc, char* argv[])
       std::cout << "    Device " << i << ": " 
                 << global_ctx->device(i)->get_device_name() << std::endl; 
   }
-  // Compile sources
-  global_ctx->global_register_source_file("pathtracer.cl",{"trace_paths"});
-  
+  // Compile sources and register kernels
+  std::vector<std::string> kernels = {"trace_paths"};
+  global_ctx->global_register_source_file("pathtracer.cl", {"trace_paths"});
+  global_ctx->global_register_source_file("postprocessing.cl", {"hdr_color_compression"});
+  global_ctx->global_register_source_file("reduction.cl", {"max_value_reduction_init", 
+                                                          "max_value_reduction"});
+
   qcl::device_context_ptr ctx = global_ctx->device();
 
   std::string extensions;
@@ -148,7 +152,13 @@ int main(int argc, char* argv[])
     camera.get()
   };
 
+  realtime_renderer.get_render_engine().set_target_fps(40.0);
+
+  gray::input_handler input;
   realtime_renderer.launch();
+  gray::interactive_camera_control cam_controller(input, camera.get(), 
+                                                  &realtime_renderer);
+  gray::interactive_program_control program_controller(input);
   gl_renderer::instance().render_loop();
 
   return 0;

@@ -18,10 +18,11 @@ public:
     return rd();
   }
 
-  random_engine(const qcl::device_context_ptr& ctx,
-                   std::size_t width, std::size_t height, 
-                   std::size_t seed)
-  : _ctx{ctx}, _gen{seed}
+  random_engine() = default;
+  random_engine(const qcl::device_context_ptr &ctx,
+                std::size_t width, std::size_t height,
+                std::size_t seed)
+      : _ctx{ctx}, _gen{seed}
   {
     init(width, height);
   }

@@ -52,8 +52,8 @@ void cl_gl::release()
 
 void cl_gl::init()
 {
-  glGenTextures( 1, &_texture );
-  
+  glGenTextures(1, &_texture);
+
   glBindTexture( GL_TEXTURE_2D, _texture );
 
   // set basic parameters
@@ -76,7 +76,7 @@ void cl_gl::init()
   this->_gl_objects.push_back(_cl_buffer);
   
   glBindTexture( GL_TEXTURE_2D, 0 );
-  
+  glFinish();
   assert(glGetError() == GL_NO_ERROR);
 }
 

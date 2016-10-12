@@ -21,7 +21,6 @@
 #include "gl_renderer.hpp"
 #include "image.hpp"
 
-
 void glut_display_func()
 { 
   gl_renderer::instance()._display_func();
@@ -37,6 +36,7 @@ void glut_keyboard_func(unsigned char c, int x, int y)
 
 void glut_reshape_func(int width, int height)
 {
+  glFinish();
   gl_renderer::instance()._width = width;
   gl_renderer::instance()._height = height;
   gl_renderer::instance()._reshape_func(width, height);
@@ -49,10 +49,16 @@ void glut_mouse_func(int button, int state, int x, int y)
   gl_renderer::instance()._mouse_func(button, state, x, y);
   gl_renderer::instance().post_redisplay();
 }
- 
+
+void glut_mouse_wheel_func(int wheel, int direction, int x, int y)
+{
+  gl_renderer::instance()._mouse_wheel_func(wheel, direction, x, y);
+  gl_renderer::instance().post_redisplay();
+}
+
 void glut_motion_func(int x, int y)
 {
-  gl_renderer::instance()._motion_func(x,y);
+  gl_renderer::instance()._motion_func(x, y);
   gl_renderer::instance().post_redisplay();
 }
 
@@ -71,6 +77,7 @@ gl_renderer::gl_renderer()
   _mouse_func = [](int, int, int, int) {};
   _motion_func = [](int, int) {};
   _idle_func = []() {};
+  _mouse_wheel_func = [](int, int, int, int) {};
 }
 
 void gl_renderer::init(const std::string& title,
@@ -99,6 +106,8 @@ void gl_renderer::init(const std::string& title,
   glutKeyboardFunc(glut_keyboard_func);
   glutIdleFunc(glut_idle_func);
   glutMouseFunc(glut_mouse_func);
+  //glutMouseWheelFunc(glut_mouse_wheel_func);
+  glutPassiveMotionFunc(glut_motion_func);
   glutMotionFunc(glut_motion_func);
   glutReshapeFunc(glut_reshape_func);
  
@@ -138,7 +147,12 @@ void gl_renderer::on_mouse(std::function<void(int,int,int,int)> f)
 {
   this->_mouse_func = f;
 }
-
+/*
+void gl_renderer::on_mouse_wheel(std::function<void(int, int, int, int)> f)
+{
+  this->_mouse_wheel_func = f;
+}
+*/
 void gl_renderer::on_motion(std::function<void(int,int)> f)
 {
   this->_motion_func = f;
