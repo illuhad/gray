@@ -1,5 +1,5 @@
 /*
- * This file is part of mandelgpu, a free GPU accelerated fractal viewer,
+ * This file is part of gray, a free, GPU accelerated, realtime pathtracing engine,
  * Copyright (C) 2016  Aksel Alpay
  *
  * This program is free software: you can redistribute it and/or modify
