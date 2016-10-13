@@ -226,12 +226,13 @@ int sphere_geometry_intersects(const sphere_geometry* ctx, const ray* r,
   event->normal = normalize(event->position - ctx->position);
 
   // Calculate uv coordinates for material mapping
-  scalar mat_u = acospi(dot(ctx->polar_direction, event->normal)) * 0.5f + 0.5f;
+  scalar mat_v = acospi(dot(ctx->polar_direction, event->normal));
 
   scalar x = dot(ctx->equatorial_basis1, event->normal);
   scalar y = dot(ctx->equatorial_basis2, event->normal);
 
-  scalar mat_v = atan2pi(y, x) * 0.5f + 0.5f;
+  scalar mat_u = atan2pi(y, x) * 0.5f + 0.5f;
+
   event->uv_coordinates = (float2)(mat_u, mat_v);
 
   return 1;

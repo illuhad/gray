@@ -129,7 +129,8 @@ intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
     intensity effective_bsdf = 
       interacting_material->scattered_fraction * (1.f / russian_roulette_probability);
 
-    radiance += r->energy * interacting_material->emitted_light;
+    radiance += fabs(dot(next_intersection.normal, r->direction)) 
+              * r->energy * interacting_material->emitted_light;
     r->energy *= effective_bsdf;
 
     if(random_uniform_scalar(rand) < russian_roulette_probability)
