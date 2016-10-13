@@ -333,7 +333,7 @@ public:
                                             _camera->get_screen_basis1(), 
                                             delta_y * get_angular_movement_amount());
         new_look_at = math::matrix_vector_mult(&rotation_matrix, _camera->get_look_at());
-
+       
         math::matrix_create_rotation_matrix(&rotation_matrix, 
                                             _camera->get_screen_basis2(), 
                                             -delta_x * get_angular_movement_amount());

@@ -46,8 +46,8 @@ public:
 
   void set_look_at(vector3 direction)
   {
-    _look_at = direction;
-    _camera_lens.geometry.plane.normal = direction;
+    _look_at = math::normalize(direction);
+    _camera_lens.geometry.plane.normal = _look_at;
 
     _position = _camera_lens.geometry.plane.position - _lens_plane_distance * _look_at;
 
@@ -66,8 +66,9 @@ public:
     math::matrix3x3 roll_matrix;
     math::matrix_create_rotation_matrix(&roll_matrix, _look_at, _roll_angle);
 
-    this->_screen_basis1 = matrix_vector_mult(&roll_matrix, v1);
-    this->_screen_basis2 = matrix_vector_mult(&roll_matrix, v2);
+    // Normalize vectors in case of rounding errors
+    this->_screen_basis1 = math::normalize(matrix_vector_mult(&roll_matrix, v1));
+    this->_screen_basis2 = math::normalize(matrix_vector_mult(&roll_matrix, v2));
 
     /*#ifndef WITH_LIGHT_RAYS
     matrix3x3 basis_matrix;
