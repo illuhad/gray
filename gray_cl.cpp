@@ -115,6 +115,8 @@ setup_camera(const qcl::device_context_ptr& ctx)
           0.1f, // aperture
           std::sqrt(math::dot(camera_pos, camera_pos))  // focal length
           );
+          
+  camera_ptr->enable_autofocus();
 
   return camera_ptr;
 }

@@ -252,7 +252,7 @@ public:
   interactive_camera_control(input_handler& input,
                             device_object::camera* cam,
                             realtime_window_renderer* realtime_renderer)
-  : _camera{cam}, _renderer{realtime_renderer}
+  : _camera{cam}, _renderer{realtime_renderer}, _last_camera_focus{1.0}
   {
     assert(cam);
     assert(realtime_renderer);
@@ -287,10 +287,30 @@ public:
       
     });
 
+    input.add_key_event('z', [this](input_handler *input, int x, int y) {
+      if(!_camera->is_autofocus_enabled())
+      {
+        _last_camera_focus = _camera->get_focal_length();
+        _camera->enable_autofocus();
+      }
+      else
+        _camera->set_focal_length(_last_camera_focus);
+
+    });
+
+    input.add_key_event('p', [this](input_handler *input, int x, int y) {
+      // Screenshot
+    });
 
 
     input.add_mouse_wheel_event([this](input_handler *input, int wheel, int direction, int x, int y) {
       // scrolling - change focal distance
+      if(_camera->is_autofocus_enabled())
+      {
+        _camera->set_focal_length(_last_camera_focus);
+        return;
+      }
+
       scalar focal_plane = _camera->get_focal_plane_distance();
       focal_plane += direction * get_movement_amount();
 
@@ -343,6 +363,8 @@ private:
 
   device_object::camera* _camera;
   realtime_window_renderer *_renderer;
+
+  scalar _last_camera_focus;
 };
 }
 

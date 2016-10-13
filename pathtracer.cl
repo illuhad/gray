@@ -60,7 +60,7 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
   vector3 origin = ctx->position;
   origin += (px_relative_to_center_x - 0.5f + position_in_pixel_x) * px_size * ctx->screen_basis1;
   origin += (px_relative_to_center_y - 0.5f + position_in_pixel_y) * px_size * ctx->screen_basis2;
-  //origin -= ctx->lens_plane_distance * ctx->look_at;
+
   // Generate a sample for the direction
   scalar x,y;
   scalar r2 = ctx->camera_lens.geometry.radius * ctx->camera_lens.geometry.radius;
@@ -90,7 +90,18 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
   path_vertex impact;
   disk_geometry_intersects(&(ctx->camera_lens.geometry), r, &impact);
   simple_lens_object_propagate_ray(&(ctx->camera_lens), &impact, rand, r);
+}
 
+void camera_autofocus(camera* ctx, const scene* s)
+{
+  ray test_ray;
+  test_ray.origin_vertex.position = ctx->camera_lens.geometry.plane.position;
+  test_ray.direction = ctx->look_at;
+  path_vertex intersection;
+  scene_get_nearest_intersection(s, &test_ray, &intersection);
+  scalar dist = distance(intersection.position, test_ray.origin_vertex.position);
+
+  ctx->camera_lens.focal_length = 1.f / (1.f / dist + 1.f / ctx->lens_plane_distance);
 }
 
 intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
@@ -189,6 +200,10 @@ __kernel void trace_paths(__write_only image2d_t pixels,
     s.materials.height = heights;
     s.materials.offsets = offsets;
     s.materials.num_material_maps = num_material_maps;
+
+    // Calculate focal distance if autofocus is enabled
+    if(cam.camera_lens.focal_length <= 0.0f)
+      camera_autofocus(&cam, &s);
 
     // Actual work starts here
     intensity pixel_value = (intensity)(0, 0, 0);

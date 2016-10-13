@@ -125,7 +125,9 @@ public:
 
   scalar get_focal_length() const
   {
-    return _camera_lens.focal_length;
+    if(_camera_lens.focal_length > 0.0)
+      return _camera_lens.focal_length;
+    return 1.0;
   }
 
   scalar get_aperture_diameter() const
@@ -138,9 +140,25 @@ public:
     _camera_lens.focal_length = 1.f / (1.f / focal_plane_distance + 1.f / _lens_plane_distance);
   }
 
+  void set_focal_length(scalar focal_length)
+  {
+    assert(focal_length > 0.0);
+    _camera_lens.focal_length = focal_length;
+  }
+
   scalar get_focal_plane_distance() const
   {
-    return 1.f / (1.f / _camera_lens.focal_length - 1.f / _lens_plane_distance);
+    return 1.f / (1.f / get_focal_length() - 1.f / _lens_plane_distance);
+  }
+
+  void enable_autofocus()
+  {
+    _camera_lens.focal_length = -1.0;
+  }
+
+  inline bool is_autofocus_enabled() const
+  {
+    return _camera_lens.focal_length <= 0.0;
   }
 
 private:
