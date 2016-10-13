@@ -300,8 +300,8 @@ public:
 
     input.add_key_event('p', [this](input_handler *input, int x, int y) {
       // Screenshot
+      gl_renderer::instance().save_png_screenshot("gray_render.png");
     });
-
 
     input.add_mouse_wheel_event([this](input_handler *input, int wheel, int direction, int x, int y) {
       // scrolling - change focal distance

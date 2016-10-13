@@ -36,7 +36,7 @@ void save_png(const std::string& filename,
     std::size_t x = i % npx_x;
     
     assert(i >= x);
-    std::size_t y = (i - x) / npx_x;
+    std::size_t y = npx_y - 1 - (i - x) / npx_x;
     
     image[y][x] = png::rgb_pixel(r,g,b);
    
