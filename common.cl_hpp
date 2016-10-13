@@ -3,6 +3,8 @@
 
 #include "common_math.cl_hpp"
 
+#define MAX_VALUE_RUNNING_AVERAGE_SIZE 32
+
 #ifndef __OPENCL_VERSION__ 
 #define HOST
 #endif

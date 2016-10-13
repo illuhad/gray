@@ -6,6 +6,7 @@
 #include "qcl.hpp"
 #include "random.hpp"
 #include "reduction.hpp"
+#include "common.cl_hpp"
 
 #include <cstdint>
 
@@ -30,6 +31,13 @@ public:
     _image_max_reduction{ctx}
   {
     set_resolution(render_width, render_height);
+
+    std::vector<cl_float> max_running_average_init{_max_value_running_average_size, 1.0f};
+
+    _ctx->create_buffer<cl_float>(_max_value_running_average, 
+                                  CL_MEM_READ_WRITE,
+                                  _max_value_running_average_size, 
+                                  max_running_average_init.data());
   }
 
   void set_target_fps(double fps)
@@ -157,6 +165,9 @@ public:
     _post_processing_kernel->setArg(0, pixels);
     _post_processing_kernel->setArg(1, *_buffer_a);
     _post_processing_kernel->setArg(2, _image_max_reduction.get_reduction_result());
+    _post_processing_kernel->setArg(3, _max_value_running_average);
+    _post_processing_kernel->setArg(4, static_cast<cl_ulong>(_frame_number));
+    _post_processing_kernel->setArg(5, static_cast<cl_int>(get_smoothing_size()));
 
     cl::Event post_processor_run;
     err = _ctx->get_command_queue().enqueueNDRangeKernel(*_post_processing_kernel,
@@ -196,6 +207,13 @@ public:
   }
 
 private:
+  inline int get_smoothing_size() const
+  {
+    const double max_smoothing = 16.0;
+
+    return static_cast<int>(max_smoothing / (0.1 * static_cast<double>(_total_num_rays) + 1.0));
+  }
+
   std::shared_ptr<cl::Image2D> create_image_buffer(std::size_t width, 
                                                   std::size_t height) const
   {
@@ -253,6 +271,10 @@ private:
   std::uint_fast64_t _frame_number;
 
   image_maximum_value _image_max_reduction;
+
+  static constexpr std::size_t _max_value_running_average_size = 
+                                    MAX_VALUE_RUNNING_AVERAGE_SIZE;
+  cl::Buffer _max_value_running_average;
 };
 }
 

@@ -78,7 +78,8 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
 intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
 {
   path_vertex next_intersection;
-  for (int i = 0; i < 5; ++i) // we will never really iterate to the end
+  intensity radiance = (intensity)(0, 0, 0);
+  for (int i = 0; i < MAX_BOUNCES; ++i) // we will never really iterate to the end
   {
     scene_get_nearest_intersection(s, r, &next_intersection);
 
@@ -92,33 +93,25 @@ intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
 
     // Russian roulette
     scalar russian_roulette_probability =
-        fmax(interacting_material->scattered_fraction.x,
-            fmax(interacting_material->scattered_fraction.y, 
-                interacting_material->scattered_fraction.z));
+        fmax(r->energy.x,
+            fmax(r->energy.y, 
+                r->energy.z));
     
     intensity effective_bsdf = 
       interacting_material->scattered_fraction * (1.f / russian_roulette_probability);
 
-    if(interacting_material->emitted_light.x != 0.0f || 
-      interacting_material->emitted_light.y != 0.0f || 
-      interacting_material->emitted_light.z != 0.0f)
-      return r->energy * interacting_material->emitted_light;
-    r->energy *= interacting_material->scattered_fraction;
+    radiance += r->energy * interacting_material->emitted_light;
+    r->energy *= effective_bsdf;
 
-    //r->energy += interacting_material->emitted_light;
-
-
-    //if(random_uniform_scalar(rand) < russian_roulette_probability)
-    // continue
+    if(random_uniform_scalar(rand) < russian_roulette_probability)
       material_propagate_ray(interacting_material,
                              &next_intersection,
                              rand,
                              r);
-    //else
-      // ray is absorbed
-    //  return (vector3)(0,0,0);
+    else
+      return radiance;
   }
-  return (vector3)(0,0,0);
+  return radiance;
 }
 
 __constant sampler_t pixel_sampler = CLK_NORMALIZED_COORDS_FALSE | 

@@ -66,25 +66,29 @@ public:
 
     event.wait();
 
-    for (std::size_t num_groups = 
-          get_required_num_work_items(required_buffer_size / _group_size);
-         ;
-         num_groups = get_required_num_work_items(num_groups / _group_size))
+    if(required_buffer_size > _group_size)
     {
-      //std::cout << "Processing " << num_groups << std::endl;
-      err = _ctx->get_command_queue().enqueueNDRangeKernel(*_reduction_kernel,
-                                                           cl::NullRange,
-                                                           cl::NDRange(num_groups),
-                                                           cl::NDRange(_group_size),
-                                                           nullptr,
-                                                           &event);
+      // We need to redcue the result of each group to find the global
+      // result
 
-      qcl::check_cl_error(err, "Could not enqueue kernel for final reduction step!");
+      std::size_t num_groups = required_buffer_size;
 
-      event.wait();
-      // We have processed the last kernel
-      if(num_groups <= _group_size)
-        break;
+      do
+      {
+        num_groups = get_required_num_work_items(num_groups / _group_size);
+
+        err = _ctx->get_command_queue().enqueueNDRangeKernel(*_reduction_kernel,
+                                                             cl::NullRange,
+                                                             cl::NDRange(num_groups),
+                                                             cl::NDRange(_group_size),
+                                                             nullptr,
+                                                             &event);
+
+        qcl::check_cl_error(err, "Could not enqueue kernel for final reduction step!");
+
+        event.wait();
+
+      } while (num_groups > _group_size);
     }
   }
 

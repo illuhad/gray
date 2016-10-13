@@ -18,6 +18,7 @@ setup_scene(const qcl::device_context_ptr& ctx)
   auto material1 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto material2 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto material3 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto material4 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto emitting_material =
       scene_ptr->get_materials().allocate_material_map(1024, 1024);
 
@@ -25,7 +26,7 @@ setup_scene(const qcl::device_context_ptr& ctx)
 
   material_fac.create_uniform_emissive_material(
     emitting_material,
-    {{1.0f, 1.0f, 1.0f}});
+    {{0.2f, 0.2f, 0.2f}});
 
   material_fac.create_uniform_emissive_material(
       scene_ptr->access_background_map(),
@@ -34,35 +35,46 @@ setup_scene(const qcl::device_context_ptr& ctx)
   material_fac.create_uniform_material(
       material1,
       {{1.0f, 1.0f, 1.0f}},
-      1.0f, 2.0f, 1.e5f);
+      1.0f, 1.6f, 1.e5f);
   
   material_fac.create_uniform_material(
       material2,
-      {{0.5f, 0.8f, 0.2f}},
-      0.0f, 1.0f, 1.0f);
+      {{0.2f, 0.6f, 0.2f}},
+      0.0f, 1.0f, 10000.0f);
 
   material_fac.create_uniform_material(
       material3,
-      {{0.8f, 0.2f, 0.4f}},
-      0.0f, 1.0f, 0.0f);
+      {{0.8f, 0.2f, 0.2f}},
+      0.0f, 1.0f, 8.0f);
 
-  scene_ptr->add_sphere({{0.0, 0.0, 0.0}}, 
+  material_fac.create_uniform_material(
+      material4,
+      {{0.5f, 0.6f, 0.9f}},
+      {{0.1f, 0.3f, 1.4f}},
+      0.0f, 1.0f, 100.0f);
+
+  scene_ptr->add_sphere({{0.0, -0.4, 0.0}}, 
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 1.0}},
                         1.0, material1);
+  scene_ptr->add_sphere({{1.0, 1.5, 0.0}}, 
+                        {{0.0, 0.0, 1.0}}, 
+                        {{1.0, 0.0, 1.0}},
+                        1.0, material4);
+
   scene_ptr->add_plane({{0.0, 0.0, -1.0}},
                        {{0.0, 0.0, 1.0}},
                        material2);
 
   scene_ptr->add_plane({{2.0, 0.0, 0.0}},
-                       {{-1.0, 0.0, 0.0}},
+                       gray::math::normalize({{-1.0, 0.0, 1.0}}),
                        material3);
   // Use this for light emission
-
+  /*
   scene_ptr->add_disk({{-2.0, 0.0, 2.0}},
                       {{1.0, 0.0, 0.0}},
                       10.0, emitting_material);
-
+*/
   scene_ptr->transfer_data();
 
   return scene_ptr;
