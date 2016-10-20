@@ -98,6 +98,8 @@ void scene_get_medium(const scene* ctx, vector3 position,
   medium_material->refraction_index = 1.f;
   medium_material->specular_power = 0.0f;
   medium_material->transmittance = 1.0f;
+
+
 }
 
 #define OBJECT_LIST_GET_NEAREST_INTERSECTION(geometry_type,                     \

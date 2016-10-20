@@ -43,9 +43,9 @@ public:
                               scalar refraction_index,
                               scalar specular)
   {
-    texture &scattered_fraction_map = material.get_scattered_fraction();
-    texture &emitted_light_map = material.get_emitted_light();
-    texture &transmittance_refraction_specular_map = 
+    texture scattered_fraction_map = material.get_scattered_fraction();
+    texture emitted_light_map = material.get_emitted_light();
+    texture transmittance_refraction_specular_map = 
           material.get_transmittance_refraction_specular();
 
     for (std::size_t x = 0; x < scattered_fraction_map.get_width(); ++x)

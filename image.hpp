@@ -19,7 +19,28 @@
 #include <vector>
 #include <string>
 
+#include "material_map.hpp"
+
+namespace gray {
+
 void save_png(const std::string& filename, 
               const std::vector<unsigned char>& pixels,
               std::size_t npx_x,
               std::size_t npx_y);
+
+
+class image
+{
+public:
+  image();
+
+  void load_hdr(const std::string &image);
+
+
+  void write_texture(texture &tex);
+
+private:
+  std::size_t _width;
+  std::size_t _height;
+};
+}

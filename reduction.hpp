@@ -35,28 +35,34 @@ public:
   {
   }
 
+  void set_resolution(std::size_t width, std::size_t height)
+  {
+    std::size_t required_buffer_size =
+        get_required_num_work_items(width * height);
+
+    _buffer = _ctx->create_buffer<cl_float>(CL_MEM_READ_WRITE, required_buffer_size);
+
+    _buffer_size = required_buffer_size;
+  }
+
   void run_reduction(const cl::Image2D& input)
   {
     std::size_t image_width, image_height;
     input.getImageInfo(CL_IMAGE_WIDTH, &image_width);
     input.getImageInfo(CL_IMAGE_HEIGHT, &image_height);
 
-    std::size_t required_buffer_size =
-        get_required_num_work_items(image_width * image_height);
+    assert(_buffer_size != 0);
+    assert(_buffer_size >= image_width * image_height);
 
     std::size_t work_items_x =
         get_required_num_work_items(image_width, _img_group_size2d);
     std::size_t work_items_y =
         get_required_num_work_items(image_height, _img_group_size2d);
 
-    if(_buffer_size != required_buffer_size)
-    {
-      _ctx->create_buffer<float>(_buffer, 
-                                 CL_MEM_READ_WRITE, required_buffer_size);
-    }
+   
 
     _init_kernel->setArg(0, input);
-    _init_kernel->setArg(1, _buffer);
+    _init_kernel->setArg(1, *_buffer);
 
     cl_int err;
 
@@ -68,13 +74,13 @@ public:
                                                    &(_wait_events[0]));
     qcl::check_cl_error(err, "Could not enqueue init kernel for reduction!");
 
-    _reduction_kernel->setArg(0, _buffer);
+    _reduction_kernel->setArg(0, *_buffer);
     _reduction_kernel->setArg(1, _group_size * sizeof(cl_float), nullptr);
 
     cl::Event event;
     err = _ctx->get_command_queue().enqueueNDRangeKernel(*_reduction_kernel,
                                                          cl::NullRange,
-                                                         cl::NDRange(required_buffer_size),
+                                                         cl::NDRange(_buffer_size),
                                                          cl::NDRange(_group_size),
                                                          &_wait_events,
                                                          &event);
@@ -83,12 +89,12 @@ public:
 
     event.wait();
 
-    if(required_buffer_size > _group_size)
+    if(_buffer_size > _group_size)
     {
       // We need to redcue the result of each group to find the global
       // result
 
-      std::size_t num_groups = required_buffer_size;
+      std::size_t num_groups = _buffer_size;
 
       do
       {
@@ -111,7 +117,7 @@ public:
 
   const cl::Buffer& get_reduction_result() const
   {
-    return _buffer;
+    return *_buffer;
   }
 
 private:
@@ -131,7 +137,7 @@ private:
   qcl::kernel_ptr _reduction_kernel;
 
   std::size_t _buffer_size;
-  cl::Buffer _buffer;
+  qcl::buffer_ptr _buffer;
 
   static constexpr std::size_t _group_size = 512;
 

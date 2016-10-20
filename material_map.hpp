@@ -85,31 +85,31 @@ public:
     _transmittance_refraction_specular{transmittance_refraction_specular, width, height}
     {}
   
-  texture& get_scattered_fraction()
+  texture get_scattered_fraction()
   {
     return _scattered_fraction;
   }
 
-  const texture& get_scattered_fraction() const
+  const texture get_scattered_fraction() const
   {
     return _scattered_fraction;
   }
 
-  texture& get_emitted_light()
+  texture get_emitted_light()
   {
     return _emitted_light;
   }
 
-  const texture& get_emitted_light() const
+  const texture get_emitted_light() const
   {
     return _emitted_light;
   }
 
-  texture& get_transmittance_refraction_specular()
+  texture get_transmittance_refraction_specular()
   {
     return _transmittance_refraction_specular;
   }
-  const texture& get_transmittance_refraction_specular() const
+  const texture get_transmittance_refraction_specular() const
   {
     return _transmittance_refraction_specular;
   }
@@ -120,12 +120,13 @@ private:
   texture _transmittance_refraction_specular;
 };
 
+using material_map_id = portable_int;
+
 namespace device_object {
 
 class material_db
 {
 public:
-  using material_map_id = portable_int;
 
   material_db(const qcl::const_device_context_ptr& ctx)
   : _ctx{ctx}

@@ -38,11 +38,12 @@ public:
 
   random_engine() = default;
   random_engine(const qcl::device_context_ptr &ctx,
-                std::size_t width, std::size_t height,
+                std::size_t num_work_items_x, 
+                std::size_t num_work_items_y,
                 std::size_t seed)
       : _ctx{ctx}, _gen{seed}
   {
-    init(width, height);
+    init(num_work_items_x, num_work_items_y);
   }
 
   void resize(std::size_t width, std::size_t height)

@@ -252,7 +252,7 @@ public:
   interactive_camera_control(input_handler& input,
                             device_object::camera* cam,
                             realtime_window_renderer* realtime_renderer)
-  : _camera{cam}, _renderer{realtime_renderer}, _last_camera_focus{1.0}
+  : _camera{cam}, _renderer{realtime_renderer}, _last_camera_focus{0.9f}
   {
     assert(cam);
     assert(realtime_renderer);
@@ -295,6 +295,7 @@ public:
       }
       else
         _camera->set_focal_length(_last_camera_focus);
+      _renderer->get_render_engine().discard_render_results();
 
     });
 
@@ -304,21 +305,22 @@ public:
     });
 
     input.add_mouse_wheel_event([this](input_handler *input, int wheel, int direction, int x, int y) {
-      // scrolling - change focal distance
+      // scrolling - change focal plane distance
       if(_camera->is_autofocus_enabled())
       {
         _camera->set_focal_length(_last_camera_focus);
-        return;
       }
+      else
+      {
+        scalar focal_plane = _camera->get_focal_plane_distance();
 
-      scalar focal_plane = _camera->get_focal_plane_distance();
-      focal_plane += direction * get_movement_amount();
+        focal_plane += direction * get_movement_amount();
 
-      if (focal_plane < 1.e-4f)
-        focal_plane = 1.e-4f;
-      
-      _camera->set_focal_plane_distance(focal_plane);
+        if (focal_plane < 1.e-4f)
+          focal_plane = 1.e-4f;
 
+        _camera->set_focal_plane_distance(focal_plane);
+      }
       _renderer->get_render_engine().discard_render_results();
     });
 

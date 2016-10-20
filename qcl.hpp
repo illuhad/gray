@@ -67,6 +67,8 @@ void check_cl_error(cl_int err, const std::string& msg)
 using kernel_ptr = std::shared_ptr<cl::Kernel>;
 using buffer_ptr = std::shared_ptr<cl::Buffer>;
 
+using command_queue_id = std::size_t;
+
 /// Represents the OpenCL context of a device. This class contains everything
 /// that is needed to execute OpenCL commands on a device. It stores one cl::Context,
 /// a cl::CommandQueue and a number of kernels that have been compiled for the device
@@ -121,17 +123,37 @@ public:
   }
   
   /// \return The underlying OpenCL command queue
+  /// \param queue The id of the command queue. The id must be greater or
+  /// equal than 0 and smaller than \c get_num_command_queues().
+  const cl::CommandQueue& get_command_queue(command_queue_id queue) const
+  {
+    assert(queue < _queues.size());
+    return _queues[queue];
+  }
+
+  /// \return The underlying OpenCL command queue
+  /// \param queue The id of the command queue. The id must be greater or
+  /// equal than 0 and smaller than \c get_num_command_queues().
+  cl::CommandQueue& get_command_queue(command_queue_id queue)
+  {
+    assert(queue < _queues.size());
+    return _queues[queue];
+  }
+
+  /// \return The underlying OpenCL command queue
   const cl::CommandQueue& get_command_queue() const
   {
-    return _queue;
+    return _queues[0];
   }
 
   /// \return The underlying OpenCL command queue
   cl::CommandQueue& get_command_queue()
   {
-    return _queue;
+    return _queues[0];
   }
-  
+
+
+
   /// \return The device name
   std::string get_device_name() const
   {
@@ -268,7 +290,7 @@ public:
   template<class T>
   buffer_ptr create_input_buffer(
                    std::size_t size,
-                   T* initial_data = NULL) const
+                   T* initial_data = nullptr) const
   {
     return create_buffer<T>(CL_MEM_READ_ONLY, size, initial_data);
   }
@@ -276,7 +298,7 @@ public:
   template<class T>
   buffer_ptr create_output_buffer(
                    std::size_t size,
-                   T* initial_data = NULL) const
+                   T* initial_data = nullptr) const
   {
     return create_buffer<T>(CL_MEM_WRITE_ONLY, size, initial_data);
   }
@@ -285,7 +307,7 @@ public:
   void create_input_buffer(
                    cl::Buffer& out,
                    std::size_t size,
-                   T* initial_data = NULL) const
+                   T* initial_data = nullptr) const
   { 
     create_buffer<T>(out, CL_MEM_READ_ONLY, size, initial_data);
   }
@@ -294,42 +316,50 @@ public:
   void create_output_buffer(
                    cl::Buffer& out,
                    std::size_t size,
-                   T* initial_data = NULL) const
+                   T* initial_data = nullptr) const
   {
     create_buffer<T>(out, CL_MEM_WRITE_ONLY, size, initial_data);
   }
   
   template<class T>
   void memcpy_h2d(const cl::Buffer& buff,
-                  const T* data, std::size_t size) const
+                  const T* data,
+                  std::size_t size,
+                  command_queue_id queue = 0) const
   {   
     cl_int err;
 
-    err = _queue.enqueueWriteBuffer(buff, CL_TRUE, 0, size * sizeof(T),
-                                    data);
+    err = get_command_queue(queue).enqueueWriteBuffer(buff, CL_TRUE,
+                                                      0, size * sizeof(T), data);
+
     check_cl_error(err, "Could not enqueue buffer write!");
   }
 
   template<class T>
   void memcpy_h2d_async(const cl::Buffer& buff,
                   const T* data, std::size_t size, cl::Event* event, 
-                  const std::vector<cl::Event>* dependencies=NULL) const
+                  const std::vector<cl::Event>* dependencies=nullptr,
+                  command_queue_id queue = 0) const
   {
     cl_int err;
-    err = _queue.enqueueWriteBuffer(buff, CL_FALSE, 0, size*sizeof(T), 
-                                data, dependencies, event);
-    
+    err = get_command_queue(queue).enqueueWriteBuffer(buff,
+                                                      CL_FALSE, 0, size * sizeof(T),
+                                                      data, dependencies, event);
+
     check_cl_error(err, "Could not enqueue async buffer write!");
   }
   
   template<class T>
   void memcpy_d2h(T* data, 
                   const cl::Buffer& buff,
-                  std::size_t size) const
+                  std::size_t size,
+                  command_queue_id queue = 0) const
   {
     cl_int err;
 
-    err = _queue.enqueueReadBuffer(buff, CL_TRUE, 0, size * sizeof(T), data);
+    err = get_command_queue(queue).enqueueReadBuffer(buff,
+                                                     CL_TRUE, 0, size * sizeof(T), 
+                                                     data);
 
     check_cl_error(err, "Could not enqueue buffer write!");
   }
@@ -339,12 +369,13 @@ public:
                   const cl::Buffer& buff,
                   std::size_t size,
                   cl::Event* event, 
-                  const std::vector<cl::Event>* dependencies = NULL) const
+                  const std::vector<cl::Event>* dependencies = nullptr,
+                  command_queue_id queue = 0) const
   {
     cl_int err;
-    err = _queue.enqueueReadBuffer(buff, CL_FALSE, 0, size*sizeof(T), 
-                                            data, dependencies, event);
-    
+    err = get_command_queue(queue).enqueueReadBuffer(buff, CL_FALSE, 0, size * sizeof(T),
+                                                     data, dependencies, event);
+
     check_cl_error(err, "Could not enqueue async buffer write!");
   }
 
@@ -352,16 +383,17 @@ public:
   template<class T>
   void memcpy_h2d(const cl::Buffer& buff,
                   const T* data, 
-                  std::size_t begin, std::size_t end) const
+                  std::size_t begin, std::size_t end,
+                  command_queue_id queue = 0) const
   {
     assert(end > begin);
     std::size_t size = end - begin;
 
     cl_int err;
-    err = _queue.enqueueWriteBuffer(buff, CL_TRUE, 
-                                begin * sizeof(T), 
-                                size * sizeof(T), 
-                                data);
+    err = get_command_queue(queue).enqueueWriteBuffer(buff, CL_TRUE,
+                                                      begin * sizeof(T),
+                                                      size * sizeof(T),
+                                                      data);
     check_cl_error(err, "Could not enqueue buffer write!");
   }
 
@@ -371,16 +403,18 @@ public:
                   std::size_t begin, 
                   std::size_t end, 
                   cl::Event* event, 
-                  const std::vector<cl::Event>* dependencies=NULL) const
+                  const std::vector<cl::Event>* dependencies=nullptr,
+                  command_queue_id queue = 0) const
   {
     assert(end > begin);
     std::size_t size = end - begin;
 
     cl_int err;
-    err = _queue.enqueueWriteBuffer(buff, CL_FALSE,
-                                begin * sizeof(T), size * sizeof(T), 
-                                data, dependencies, event);
-    
+    err = get_command_queue(queue).enqueueWriteBuffer(buff, CL_FALSE,
+                                                      begin * sizeof(T), 
+                                                      size * sizeof(T),
+                                                      data, dependencies, event);
+
     check_cl_error(err, "Could not enqueue async buffer write!");
   }
   
@@ -388,15 +422,17 @@ public:
   void memcpy_d2h(T* data, 
                   const cl::Buffer& buff,
                   std::size_t begin,
-                  std::size_t end) const
+                  std::size_t end,
+                  command_queue_id queue = 0) const
   {
     assert(end > begin);
     std::size_t size = end - begin;
 
     cl_int err;
-    err = _queue.enqueueReadBuffer(buff, CL_TRUE,
-                                   begin * sizeof(T), size * sizeof(T),
-                                   data);
+    err = get_command_queue(queue).enqueueReadBuffer(buff, CL_TRUE,
+                                                     begin * sizeof(T), 
+                                                     size * sizeof(T),
+                                                     data);
 
     check_cl_error(err, "Could not enqueue buffer write!");
   }
@@ -407,16 +443,18 @@ public:
                   std::size_t begin,
                   std::size_t end,
                   cl::Event* event, 
-                  const std::vector<cl::Event>* dependencies = NULL) const
+                  const std::vector<cl::Event>* dependencies = nullptr,
+                  command_queue_id queue = 0) const
   {
     assert(end > begin);
     std::size_t size = end - begin;
 
     cl_int err;
-    err = _queue.enqueueReadBuffer(buff, CL_FALSE,
-                                 begin * sizeof(T), size*sizeof(T), 
-                                 data, dependencies, event);
-    
+    err = get_command_queue(queue).enqueueReadBuffer(buff, CL_FALSE,
+                                                     begin * sizeof(T),
+                                                     size * sizeof(T),
+                                                     data, dependencies, event);
+
     check_cl_error(err, "Could not enqueue async buffer write!");
   }
   
@@ -442,7 +480,36 @@ public:
   {
     return is_extension_supported(this->_device, extension);
   }
-  
+
+  command_queue_id add_command_queue(cl_command_queue_properties props = 0)
+  {
+    cl_int err;
+    _queues.push_back(cl::CommandQueue(_context, _device, props, &err));
+    
+    check_cl_error(err, "Could not create command queue!");
+
+    return _queues.size() - 1;
+  }
+
+  command_queue_id add_out_of_order_command_queue()
+  {
+    return add_command_queue(CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE);
+  }
+
+  std::size_t get_num_command_queues() const
+  {
+    return _queues.size();
+  }
+
+  /// Ensures that at least \c num_queues are available.
+  /// If less command queues are available, creates new command
+  /// queues until enough are available.
+  void require_several_command_queues(std::size_t num_queues)
+  {
+    while(get_num_command_queues() < num_queues)
+      add_command_queue();
+  }
+
 private:
   void load_kernels(const cl::Program& prog, 
                     const std::vector<std::string>& kernel_names)
@@ -459,11 +526,8 @@ private:
   
   void init_device()
   {
-    cl_int err;
-    _queue = cl::CommandQueue(_context, _device, 0, &err);
-    
-    check_cl_error(err, "Could not create command queue!");
-    
+    add_command_queue();
+
     check_cl_error(_device.getInfo(CL_DEVICE_TYPE, &_device_type),
                    "get_device_type(): Could not obtain device type");
   }
@@ -510,7 +574,7 @@ private:
   cl::Context _context;
   cl::Device _device;
   
-  cl::CommandQueue _queue;
+  std::vector<cl::CommandQueue> _queues;
   
   std::map<std::string, kernel_ptr> _kernels;
   

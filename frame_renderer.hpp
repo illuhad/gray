@@ -27,6 +27,7 @@
 #include "common.cl_hpp"
 
 #include <cstdint>
+#include <array>
 
 namespace gray {
 
@@ -48,9 +49,11 @@ public:
     _frame_number{0},
     _image_max_reduction{ctx}
   {
-    set_resolution(render_width, render_height);
+    set_resolution(render_width, render_height, random_seed);
 
     std::vector<cl_float> max_running_average_init{_max_value_running_average_size, 1.0f};
+
+    //_ctx->require_several_command_queues(2);
 
     _ctx->create_buffer<cl_float>(_max_value_running_average, 
                                   CL_MEM_READ_WRITE,
@@ -78,14 +81,20 @@ public:
     return _current_fps;
   }
 
-  void set_resolution(std::size_t width, std::size_t height)
+  void set_resolution(std::size_t width, 
+                      std::size_t height, 
+                      std::size_t seed = device_object::random_engine::generate_seed())
   {
-    std::size_t seed = device_object::random_engine::generate_seed();
+    _ctx->get_command_queue().finish();
+
+    auto work_items = get_required_num_work_items(width, height);
     this->_random = device_object::random_engine{
-        _ctx, width, height, seed};
+        _ctx, work_items[0], work_items[1], seed
+    };
 
     _buffer_a = create_image_buffer(width, height);
     _buffer_b = create_image_buffer(width, height);
+    _image_max_reduction.set_resolution(width, height);
 
     _total_num_rays = 0;
 
@@ -136,48 +145,49 @@ public:
     if(_total_num_rays > 100000)
       return;
 
+    // Size of work group must divide number of work items
+    auto work_items = get_required_num_work_items(_width, _height);
+    cl_int err;
+
     //Call kernel
     _kernel->setArg(0, *_buffer_a);
     _kernel->setArg(1, *_buffer_b);
     _kernel->setArg(2, static_cast<cl_int>(_total_num_rays));
     _kernel->setArg(3, _random.get());
-    _kernel->setArg(4, sizeof(device_object::camera), &cam);
-    _kernel->setArg(5, _num_rays_ppx);
+    _kernel->setArg(4, sizeof(cl_float) * _work_group_size * _work_group_size, nullptr);
+    _kernel->setArg(5, sizeof(device_object::camera), &cam);
+    _kernel->setArg(6, _num_rays_ppx);
 
-    _kernel->setArg(6, s.get_objects());
-    _kernel->setArg(7, s.get_spheres());
-    _kernel->setArg(8, s.get_planes());
-    _kernel->setArg(9, s.get_disks());
-    _kernel->setArg(10, static_cast<cl_int>(s.get_num_spheres()));
-    _kernel->setArg(11, static_cast<cl_int>(s.get_num_planes()));
-    _kernel->setArg(12, static_cast<cl_int>(s.get_num_disks()));
-    _kernel->setArg(13, s.get_far_clipping_distance());
+    _kernel->setArg(7, s.get_objects());
+    _kernel->setArg(8, s.get_spheres());
+    _kernel->setArg(9, s.get_planes());
+    _kernel->setArg(10, s.get_disks());
+    _kernel->setArg(11, static_cast<cl_int>(s.get_num_spheres()));
+    _kernel->setArg(12, static_cast<cl_int>(s.get_num_planes()));
+    _kernel->setArg(13, static_cast<cl_int>(s.get_num_disks()));
+    _kernel->setArg(14, s.get_far_clipping_distance());
 
-    _kernel->setArg(14, s.get_materials().get_scattered_fraction());
-    _kernel->setArg(15, s.get_materials().get_emitted_light());
-    _kernel->setArg(16, s.get_materials().get_transmittance_refraction_specular());
-    _kernel->setArg(17, s.get_materials().get_widths());
-    _kernel->setArg(18, s.get_materials().get_heights());
-    _kernel->setArg(19, s.get_materials().get_offsets());
-    _kernel->setArg(20, static_cast<cl_int>(s.get_materials().get_num_material_maps()));
-
-    // Size of work group must divide number of work items
-    std::size_t effective_width = _width;
-    std::size_t effective_height = _height;
-    if(effective_width % _work_group_size != 0)
-      effective_width = (_width / _work_group_size + 1) * _work_group_size;
-    if(effective_height % _work_group_size != 0)
-      effective_height = (_height / _work_group_size + 1) * _work_group_size;
+    _kernel->setArg(15, s.get_materials().get_scattered_fraction());
+    _kernel->setArg(16, s.get_materials().get_emitted_light());
+    _kernel->setArg(17, s.get_materials().get_transmittance_refraction_specular());
+    _kernel->setArg(18, s.get_materials().get_widths());
+    _kernel->setArg(19, s.get_materials().get_heights());
+    _kernel->setArg(20, s.get_materials().get_offsets());
+    _kernel->setArg(21, static_cast<cl_int>(s.get_materials().get_num_material_maps()));
 
     assert(_kernel_run_event.size() == 1);
-    cl_int err = _ctx->get_command_queue().enqueueNDRangeKernel(*_kernel,
-                                                                cl::NullRange,
-                                                                cl::NDRange(effective_width, effective_height),
-                                                                cl::NDRange(_work_group_size, _work_group_size),
-                                                                nullptr,
-                                                                &(_kernel_run_event[0]));
+
+    err = _ctx->get_command_queue().enqueueNDRangeKernel(*_kernel,
+                                                         cl::NullRange,
+                                                         cl::NDRange(work_items[0], work_items[1]),
+                                                         cl::NDRange(_work_group_size, _work_group_size),
+                                                         nullptr,
+                                                         &(_kernel_run_event[0]));
+
     qcl::check_cl_error(err, "Could not enqueue kernel call!");
 
+    // Obtain maximum pixel value. This is required for the
+    // color range compression during post processing.
     _image_max_reduction.run_reduction(*_buffer_a);
 
     _post_processing_kernel->setArg(0, pixels);
@@ -188,30 +198,29 @@ public:
     _post_processing_kernel->setArg(5, static_cast<cl_int>(get_smoothing_size()));
 
     cl::Event post_processor_run;
-    err = _ctx->get_command_queue().enqueueNDRangeKernel(*_post_processing_kernel,
-                                                         cl::NullRange,
-                                                         cl::NDRange(effective_width, effective_height),
-                                                         cl::NDRange(_work_group_size, _work_group_size),
-                                                         &_kernel_run_event,
-                                                         &post_processor_run);
-    qcl::check_cl_error(err, "Could not enqueue postprocessing kernel call!");                                                        
-    post_processor_run.wait();
- 
+    err = _ctx->get_command_queue(0).enqueueNDRangeKernel(*_post_processing_kernel,
+                                                          cl::NullRange,
+                                                          cl::NDRange(work_items[0], work_items[1]),
+                                                          cl::NDRange(_work_group_size, _work_group_size),
+                                                          nullptr,
+                                                          &post_processor_run);
+    qcl::check_cl_error(err, "Could not enqueue postprocessing kernel call!");
+
     double time = _timer.stop();
     _timer.start();
 
     _total_num_rays += _num_rays_ppx;
 
     _current_fps = 1.0 / time;
-    _num_rays_ppx = static_cast<portable_int>(_num_rays_ppx /
-                                              (time * _target_fps));
-    if(_num_rays_ppx < 1)
+    _num_rays_ppx = static_cast<portable_int>(std::round(_num_rays_ppx * _current_fps /
+                                                         _target_fps));
+    if (_num_rays_ppx < 1)
       _num_rays_ppx = 1;
 
     std::swap(_buffer_a, _buffer_b);
 
-    std::cout << "Performance @ " << static_cast<double>(_width * _height * _num_rays_ppx) / (1.e6 * time) 
-              << " Mrays/s" << std::endl;
+    std::cout << "Performance @ " << static_cast<double>(_width * _height * _num_rays_ppx) / (1.e6 * time)
+              << " Mrays/s, num_rays_ppx=" << _num_rays_ppx << " fps=" << _current_fps << std::endl;
   }
 
   const qcl::device_context_ptr& get_current_context() const
@@ -227,9 +236,21 @@ public:
 private:
   inline int get_smoothing_size() const
   {
-    const double max_smoothing = 16.0;
+    const double max_smoothing = 10.0;
 
     return static_cast<int>(max_smoothing / (0.1 * static_cast<double>(_total_num_rays) + 1.0));
+  }
+
+  inline
+  std::array<std::size_t,2> get_required_num_work_items(std::size_t width, std::size_t height)
+  {
+    std::size_t effective_width = width;
+    std::size_t effective_height = height;
+    if(effective_width % _work_group_size != 0)
+      effective_width = (_width / _work_group_size + 1) * _work_group_size;
+    if(effective_height % _work_group_size != 0)
+      effective_height = (_height / _work_group_size + 1) * _work_group_size;
+    return {effective_width, effective_height};
   }
 
   std::shared_ptr<cl::Image2D> create_image_buffer(std::size_t width, 

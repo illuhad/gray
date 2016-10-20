@@ -35,17 +35,31 @@ setup_scene(const qcl::device_context_ptr& ctx)
   // Create materials
   auto material1 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto material2 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto material3 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto diffuse = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto material4 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
   auto material5 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto emitting_material =
+  auto mirror_material =
+      scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto emissive_material =
+      scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto medium_material =
       scene_ptr->get_materials().allocate_material_map(1024, 1024);
 
   gray::material_factory material_fac{&(scene_ptr->get_materials())};
 
+  material_fac.create_uniform_material(
+    mirror_material,
+    {{0.9f, 0.76f, 0.8f}},
+    0.0f, 1.0f, 100000.f);
+
+  material_fac.create_uniform_material(
+    medium_material,
+    {{1.0f, 1.0f, 1.0f}},
+    1.0f, 1.0f, 100000.f);
+
   material_fac.create_uniform_emissive_material(
-    emitting_material,
-    {{1.3f, 1.0f, 1.0f}});
+    emissive_material,
+    {{1.2f, 1.2f, 1.2f}});
 
   material_fac.create_uniform_emissive_material(
       scene_ptr->access_background_map(),
@@ -53,7 +67,7 @@ setup_scene(const qcl::device_context_ptr& ctx)
 
   material_fac.create_uniform_material(
       material1,
-      {{1.0f, 1.0f, 1.0f}},
+      {{0.9f, 1.0f, 1.0f}},
       1.0f, 1.6f, 1.e5f);
   
   material_fac.create_uniform_material(
@@ -62,8 +76,8 @@ setup_scene(const qcl::device_context_ptr& ctx)
       0.0f, 1.0f, 0.0f);
 
   material_fac.create_uniform_material(
-      material3,
-      {{0.35f, 0.2f, 0.2f}},
+      diffuse,
+      {{0.8f, 0.8f, 0.8f}},
       0.0f, 1.0f, 0.0f);
 
   material_fac.create_uniform_material(
@@ -75,13 +89,14 @@ setup_scene(const qcl::device_context_ptr& ctx)
   material_fac.create_uniform_material(
       material5,
       {{0.5f, 0.8f, 0.14f}},
+      //{{0.5f, 0.8f, 0.14f}},
       0.0f, 1.5f, 0.0f);
 
-  gray::texture &material5_trs = 
+  gray::texture material5_trs = 
     scene_ptr->get_materials().get_material_map(material5).get_transmittance_refraction_specular();
-  gray::texture &material5_scattered =
+  gray::texture material5_scattered =
       scene_ptr->get_materials().get_material_map(material5).get_scattered_fraction();
-  gray::texture& emitted_mat_tex = 
+  gray::texture emitted_mat_tex = 
       scene_ptr->get_materials().get_material_map(material4).get_emitted_light();
 
   for (std::size_t x = 0; x < material5_trs.get_width(); ++x)
@@ -93,49 +108,70 @@ setup_scene(const qcl::device_context_ptr& ctx)
                             static_cast<gray::scalar>(material5_trs.get_height());
 
       auto val = material5_trs.read(x,y);
-      val.s[2] = std::sin(y_normalized * 20 * 3.145f) *
-                     1000.f +
-                 1000.f;
+      val.s[2] = std::sin(y_normalized * 2 * 2 * 3.145f) *
+                     10000.f +
+                 10000.f;
 
       material5_trs.write(val, x, y);
 
       val = material5_scattered.read(x, y);
-      val.s[0] = 0.5f * std::cos(10 * M_PI * x_normalized) + 0.5f;
+      //val.s[0] = 0.5f * std::cos(10 * M_PI * x_normalized) + 0.5f;
       material5_scattered.write(val, x, y);
 
       val = emitted_mat_tex.read(x, y);
-      val.s[0] = 0.5f * std::cos(x_normalized * 2 * M_PI * 4) + 0.5f;
-      val.s[1] = 0.5f * std::sin(x_normalized * 2 * M_PI * 4) + 0.5f;
-      val.s[2] = 0.5f * std::cos(y_normalized * 2 * M_PI * 4) + 0.5f;
+
+      val.s[0] = 0.35f *  std::cos(x_normalized * 2 * M_PI * 3) + 0.35f;
+      val.s[1] = 0.6f *  std::sin((x_normalized*y_normalized)* 2 * M_PI * 3) + 0.6f;
+      val.s[2] = 0.35f * std::sin(y_normalized * 2 * M_PI * 3) + 0.35f;
       emitted_mat_tex.write(val, x, y);
     }
 
-  scene_ptr->add_sphere({{0.0, -0.4, 0.0}},
+  scene_ptr->add_sphere({{0.0, -0.4, 0.1}},
                           {{0.0, 0.0, 1.0}},
                           {{1.0, 0.0, 0.0}},
-                          1.0, material1);
-  scene_ptr->add_sphere({{1.0, 1.5, 2.2}}, 
+                          1.1, material1);
+  scene_ptr->add_sphere({{1.0, 1.5, 61.0}}, 
+                        {{0.0, 1.0, 0.0}}, 
+                        {{1.0, 0.0, 0.0}},
+                        55.0, material4);
+  scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 0.0}},
-                        2.0, material4);
-  scene_ptr->add_sphere({{0.0, -3.0, 0.0}}, 
+                        0.3, material5);   
+    scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 0.0}},
-                        1.0, material5);                        
+                        0.8, medium_material);                       
+
+  scene_ptr->add_sphere({{3.0, 1.0, -3.0}}, 
+                        {{0.0, 0.0, 1.0}}, 
+                        {{1.0, 0.0, 0.0}},
+                        3.0, diffuse);
+  scene_ptr->add_sphere({{-3.0, 1.0, -3.0}}, 
+                        {{0.0, 0.0, 1.0}}, 
+                        {{1.0, 0.0, 0.0}},
+                        3.0, diffuse);                         
 
   scene_ptr->add_plane({{0.0, 0.0, -1.0}},
                        {{0.0, 0.0, 1.0}},
-                       material2);
+                       diffuse);
 
-  scene_ptr->add_plane({{2.0, 0.0, 0.0}},
-                       gray::math::normalize({{-1.0, 0.0, 1.0}}),
-                       material3);
-  // Use this for light emission
-  /*
-  scene_ptr->add_disk({{-2.0, 0.0, 2.0}},
-                      {{1.0, 0.0, 0.0}},
-                      10.0, emitting_material);
-                      */
+  scene_ptr->add_disk({{4.0, 0.0, -1.0}},
+                       gray::math::normalize({{-1.0, 0.0, 1}}), 20.0,
+                       mirror_material);
+  scene_ptr->add_disk({{-4.0, 0.0, -1.0}},
+                      gray::math::normalize({{1.0, 0.0, 1}}), 20.0,
+                      mirror_material);
+  scene_ptr->add_disk({{0.0, 7.0, 0.0}},
+                      {{0.0, 1.0, 0.0}}, 20.0,
+                      mirror_material);                    
+  scene_ptr->add_disk({{0.0, -15.0, 0.0}},
+                      {{0.0, 1.0, 0.0}}, 20.0,
+                      mirror_material);
+
+  scene_ptr->add_disk({{0.0, 6.0, 3.0}},
+                      gray::math::normalize({{0.0, -6, -3}}), 0.5,
+                      emissive_material);    
   scene_ptr->transfer_data();
 
   return scene_ptr;
@@ -227,7 +263,7 @@ int main(int argc, char* argv[])
     camera.get()
   };
 
-  realtime_renderer.get_render_engine().set_target_fps(40.0);
+  realtime_renderer.get_render_engine().set_target_fps(20.0);
 
   gray::input_handler input;
   realtime_renderer.launch();

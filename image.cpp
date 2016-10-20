@@ -19,7 +19,10 @@
 #include "image.hpp"  
 #include <png++/png.hpp>
 #include <iostream>  
-  
+#include <Magick++.h>
+
+namespace gray {
+
 void save_png(const std::string& filename, 
               const std::vector<unsigned char>& pixels,
               std::size_t npx_x,
@@ -43,4 +46,7 @@ void save_png(const std::string& filename,
   }
   
   image.write(filename.c_str());
+
 } 
+
+}
