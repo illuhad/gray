@@ -54,6 +54,7 @@ namespace qcl {
 /// \throws \c std::rutime_error
 /// \param err The error code that shall be checked
 /// \param msg The error message
+static
 void check_cl_error(cl_int err, const std::string& msg)
 {
   if(err != CL_SUCCESS)
@@ -239,7 +240,7 @@ public:
   template<class T>
   buffer_ptr create_buffer(cl_mem_flags flags,
                    std::size_t size,
-                   T* initial_data = NULL) const
+                   T* initial_data = nullptr) const
   {
     if(this->is_cpu_device())
     {
@@ -266,7 +267,7 @@ public:
   void create_buffer(cl::Buffer& out,
                    cl_mem_flags flags,
                    std::size_t size,
-                   T* initial_data = NULL) const
+                   T* initial_data = nullptr) const
   {
     if(this->is_cpu_device())
     {

@@ -89,7 +89,7 @@ public:
   }
 
   inline 
-  void create_uniform_material(device_object::material_db::material_map_id id,
+  void create_uniform_material(material_map_id id,
                               rgb_color scattered_fraction,
                               rgb_color emitted_light,
                               scalar transmittance,
@@ -102,7 +102,7 @@ public:
   }
 
   inline 
-  void create_uniform_material(device_object::material_db::material_map_id id,
+  void create_uniform_material(material_map_id id,
                               rgb_color scattered_fraction,
                               scalar transmittance,
                               scalar refraction_index,
@@ -115,7 +115,7 @@ public:
 
 
  inline
- void create_uniform_emissive_material(device_object::material_db::material_map_id id,
+ void create_uniform_emissive_material(material_map_id id,
                                         rgb_color emission)
   {
     create_uniform_emissive_material(_materials->get_material_map(id),

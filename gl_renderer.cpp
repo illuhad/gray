@@ -199,7 +199,7 @@ void gl_renderer::save_png_screenshot(const std::string& name) const
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glReadPixels(0, 0, _width, _height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
 
-  save_png(name, buffer,
+  gray::save_png(name, buffer,
            static_cast<std::size_t>(_width), static_cast<std::size_t>(_height));
 }
 

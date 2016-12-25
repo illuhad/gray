@@ -17,9 +17,10 @@
  */
 
 #include "image.hpp"  
+#include "material_map.hpp"
 #include <png++/png.hpp>
 #include <iostream>  
-#include <Magick++.h>
+
 
 namespace gray {
 
@@ -47,6 +48,49 @@ void save_png(const std::string& filename,
   
   image.write(filename.c_str());
 
-} 
+}
+
+void
+image::initialize(int argc, char** argv)
+{
+  Magick::InitializeMagick(*argv);
+}
+
+image::image()
+: _width{0}, _height{0}
+{
+
+}
+
+image::image(const std::string &file_name)
+{
+  this->load(file_name);
+}
+
+void
+image::load(const std::string& image_file_name)
+{
+  _img.read(image_file_name);
+  _height = _img.rows();
+  _width = _img.columns();
+}
+
+void 
+image::write_texture(texture& tex) const
+{
+  assert(_height == tex.get_height());
+  assert(_width == tex.get_width());
+  for (std::size_t x = 0; x < _width; ++x)
+    for (std::size_t y = 0; y < _height; ++y)
+    {
+      Magick::ColorRGB rgb(_img.pixelColor(x, y));
+      float4 color;
+      color.s[0] = rgb.red();
+      color.s[1] = rgb.green();
+      color.s[2] = rgb.blue();
+      color.s[3] = 1.0f;
+      tex.write(color, x, y);
+    }
+}
 
 }

@@ -28,12 +28,13 @@ find_package(GLEW REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(OpenCL REQUIRED)
 find_package(PNG REQUIRED)
+find_package(ImageMagick COMPONENTS Magick++ REQUIRED)
 
-include_directories(${PROJECT_BINARY_DIR} ${OPENGL_INCLUDE_DIRS}  ${GLUT_INCLUDE_DIRS} ${PNG_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${OpenCL_INCLUDE_DIRS})
+include_directories(${PROJECT_BINARY_DIR} ${ImageMagick_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIRS}  ${GLUT_INCLUDE_DIRS} ${PNG_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${OpenCL_INCLUDE_DIRS})
 
 	
 add_executable(gray_cl cl_gl.cpp gl_renderer.cpp gray_cl.cpp image.cpp)
-target_link_libraries (gray_cl ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} ${PNG_LIBRARY} ${GLEW_LIBRARIES} ${OpenCL_LIBRARIES})
+target_link_libraries (gray_cl ${ImageMagick_LIBRARIES} ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} ${PNG_LIBRARY} ${GLEW_LIBRARIES} ${OpenCL_LIBRARIES})
 # Copy CL sources
 add_custom_command(TARGET gray_cl POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy

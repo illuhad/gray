@@ -25,12 +25,23 @@
 #include "realtime_renderer.hpp"
 #include "materials.hpp"
 #include "common_math.cl_hpp"
+#include "image.hpp"
 
 std::shared_ptr<gray::device_object::scene> 
 setup_scene(const qcl::device_context_ptr& ctx)
 {
+  gray::image background{"skymap.hdr"};
+
   auto scene_ptr = 
-    std::make_shared<gray::device_object::scene>(ctx, 2048, 1024);
+    std::make_shared<gray::device_object::scene>(ctx, background.get_width(), 
+                                                      background.get_height());
+
+  gray::material_factory material_fac{&(scene_ptr->get_materials())};
+  material_fac.create_uniform_emissive_material(
+      scene_ptr->access_background_map(),
+      {{0.0f, 0.0f, 0.0f}});
+  gray::texture background_emissive_texture = scene_ptr->access_background_map().get_emitted_light();
+  background.write_texture(background_emissive_texture);
 
   // Create materials
   auto material1 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
@@ -45,7 +56,6 @@ setup_scene(const qcl::device_context_ptr& ctx)
   auto medium_material =
       scene_ptr->get_materials().allocate_material_map(1024, 1024);
 
-  gray::material_factory material_fac{&(scene_ptr->get_materials())};
 
   material_fac.create_uniform_material(
     mirror_material,
@@ -58,12 +68,8 @@ setup_scene(const qcl::device_context_ptr& ctx)
     1.0f, 1.0f, 100000.f);
 
   material_fac.create_uniform_emissive_material(
-    emissive_material,
-    {{1.2f, 1.2f, 1.2f}});
-
-  material_fac.create_uniform_emissive_material(
-      scene_ptr->access_background_map(),
-      {{0.1f, 0.08f, 0.15f}});
+      emissive_material,
+      {{1.2f, 1.2f, 1.2f}});
 
   material_fac.create_uniform_material(
       material1,
@@ -130,15 +136,15 @@ setup_scene(const qcl::device_context_ptr& ctx)
                           {{0.0, 0.0, 1.0}},
                           {{1.0, 0.0, 0.0}},
                           1.1, material1);
-  scene_ptr->add_sphere({{1.0, 1.5, 61.0}}, 
+  /*scene_ptr->add_sphere({{1.0, 1.5, 61.0}}, 
                         {{0.0, 1.0, 0.0}}, 
                         {{1.0, 0.0, 0.0}},
-                        55.0, material4);
+                        55.0, material4);*/
   scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 0.0}},
                         0.3, material5);   
-    scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
+  scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 0.0}},
                         0.8, medium_material);                       
@@ -155,7 +161,7 @@ setup_scene(const qcl::device_context_ptr& ctx)
   scene_ptr->add_plane({{0.0, 0.0, -1.0}},
                        {{0.0, 0.0, 1.0}},
                        diffuse);
-
+/*
   scene_ptr->add_disk({{4.0, 0.0, -1.0}},
                        gray::math::normalize({{-1.0, 0.0, 1}}), 20.0,
                        mirror_material);
@@ -171,7 +177,7 @@ setup_scene(const qcl::device_context_ptr& ctx)
 
   scene_ptr->add_disk({{0.0, 6.0, 3.0}},
                       gray::math::normalize({{0.0, -6, -3}}), 0.5,
-                      emissive_material);    
+                      emissive_material);    */
   scene_ptr->transfer_data();
 
   return scene_ptr;
@@ -200,77 +206,103 @@ setup_camera(const qcl::device_context_ptr& ctx)
   return camera_ptr;
 }
 
+
+namespace gray {
+
+class gray_app
+{
+public:
+  gray_app(int argc, char** argv)
+  {
+    image::initialize(argc, argv);
+    
+    launch_realtime_renderer(argc, argv);
+  }
+
+private:
+  
+
+  void launch_realtime_renderer(int argc, char** argv)
+  {
+    // Initialise interoperability environment
+    cl_gl::init_environment();
+    // Initialise render window
+    gl_renderer::instance().init("gray", 640, 480, argc, argv);
+
+    // Initialise OpenCL
+    qcl::environment env;
+    for (std::size_t i = 0; i < env.get_num_platforms(); ++i)
+    {
+      std::cout << "Platform " << i << ": "
+                << env.get_platform_name(env.get_platform(i))
+                << " [" << env.get_platform_vendor(env.get_platform(i)) << "]"
+                << std::endl;
+    }
+
+    qcl::global_context_ptr global_ctx = env.create_global_gl_shared_context();
+
+    if (global_ctx->get_num_devices() == 0)
+    {
+      std::cout << "No suitable OpenCL devices!" << std::endl;
+      return;
+    }
+    else
+    {
+      std::cout << "Found " << global_ctx->get_num_devices() << " device(s):" << std::endl;
+      for (std::size_t i = 0; i < global_ctx->get_num_devices(); ++i)
+        std::cout << "    Device " << i << ": "
+                  << global_ctx->device(i)->get_device_name() << std::endl;
+    }
+    // Compile sources and register kernels
+    std::vector<std::string> kernels = {"trace_paths"};
+    global_ctx->global_register_source_file("pathtracer.cl", {"trace_paths"});
+    global_ctx->global_register_source_file("postprocessing.cl", {"hdr_color_compression"});
+    global_ctx->global_register_source_file("reduction.cl", {"max_value_reduction_init",
+                                                             "max_value_reduction"});
+
+    qcl::device_context_ptr ctx = global_ctx->device();
+
+    std::string extensions;
+    ctx->get_supported_extensions(extensions);
+
+    std::cout << "Supported extensions: " << extensions << std::endl;
+
+    // Create OpenGL <-> OpenCL interoperability
+    auto cl_gl_interop = cl_gl{
+        &(gl_renderer::instance()), ctx->get_context()};
+
+    // Create scene
+    auto scene = setup_scene(ctx);
+    auto camera = setup_camera(ctx);
+
+    // Create and launch rendering engine
+    auto realtime_renderer = gray::realtime_window_renderer{
+        ctx,
+        &cl_gl_interop,
+        scene.get(),
+        camera.get()};
+
+    realtime_renderer.get_render_engine().set_target_fps(20.0);
+
+    gray::input_handler input;
+    realtime_renderer.launch();
+    gray::interactive_camera_control cam_controller(input, camera.get(),
+                                                    &realtime_renderer);
+    gray::interactive_program_control program_controller(input);
+    gl_renderer::instance().render_loop();
+  }
+
+  void launch_offline_renderer()
+  {
+
+  }
+};
+
+}
+
 int main(int argc, char* argv[])
 {
-  // Initialise interoperability environment
-  cl_gl::init_environment();
-  // Initialise render window
-  gl_renderer::instance().init("gray", 1024, 1024, argc, argv);
-
-  // Initialise OpenCL
-  qcl::environment env;
-  for(std::size_t i = 0; i < env.get_num_platforms(); ++i)
-  {
-    std::cout << "Platform " << i << ": " 
-              << env.get_platform_name(env.get_platform(i))
-              << " ["<< env.get_platform_vendor(env.get_platform(i)) <<"]"
-              << std::endl;
-  }
-
-
-  qcl::global_context_ptr global_ctx = env.create_global_gl_shared_context();
-
-  if(global_ctx->get_num_devices() == 0)
-  {
-    std::cout << "No suitable OpenCL devices!" << std::endl;
-    return -1;
-  }
-  else
-  {
-    std::cout << "Found " << global_ctx->get_num_devices() << " device(s):" << std::endl;
-    for(std::size_t i = 0; i < global_ctx->get_num_devices(); ++i)
-      std::cout << "    Device " << i << ": " 
-                << global_ctx->device(i)->get_device_name() << std::endl; 
-  }
-  // Compile sources and register kernels
-  std::vector<std::string> kernels = {"trace_paths"};
-  global_ctx->global_register_source_file("pathtracer.cl", {"trace_paths"});
-  global_ctx->global_register_source_file("postprocessing.cl", {"hdr_color_compression"});
-  global_ctx->global_register_source_file("reduction.cl", {"max_value_reduction_init", 
-                                                          "max_value_reduction"});
-
-  qcl::device_context_ptr ctx = global_ctx->device();
-
-  std::string extensions;
-  ctx->get_supported_extensions(extensions);
-  
-  std::cout << "Supported extensions: " << extensions << std::endl;
-  
-  // Create OpenGL <-> OpenCL interoperability
-  auto cl_gl_interop = cl_gl{
-    &(gl_renderer::instance()), ctx->get_context()
-  };
-
-  // Create scene
-  auto scene = setup_scene(ctx);
-  auto camera = setup_camera(ctx);
-
-  // Create and launch rendering engine
-  auto realtime_renderer = gray::realtime_window_renderer{
-    ctx,
-    &cl_gl_interop,
-    scene.get(),
-    camera.get()
-  };
-
-  realtime_renderer.get_render_engine().set_target_fps(20.0);
-
-  gray::input_handler input;
-  realtime_renderer.launch();
-  gray::interactive_camera_control cam_controller(input, camera.get(), 
-                                                  &realtime_renderer);
-  gray::interactive_program_control program_controller(input);
-  gl_renderer::instance().render_loop();
+  gray::gray_app app{argc, argv};
 
   return 0;
 }

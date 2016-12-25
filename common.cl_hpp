@@ -27,15 +27,15 @@
 #define HOST
 #endif
 
-#ifdef HOST
-typedef cl_int portable_int;
-#else
-typedef int portable_int;
-#endif
 
 #ifdef HOST
 namespace gray{
 namespace device_object {
+#endif
+
+// portable_int will be defined in types.hpp for the host
+#ifndef HOST
+typedef int portable_int;
 #endif
 
 // The number of actual, geometric objects

@@ -19,7 +19,8 @@
 #include <vector>
 #include <string>
 
-#include "material_map.hpp"
+#include <Magick++.h>
+
 
 namespace gray {
 
@@ -28,19 +29,36 @@ void save_png(const std::string& filename,
               std::size_t npx_x,
               std::size_t npx_y);
 
+class texture;
 
 class image
 {
 public:
   image();
+  image(const std::string &file_name);
 
-  void load_hdr(const std::string &image);
+  static void initialize(int argc, char **argv);
 
+  void load(const std::string &image_file_name);
 
-  void write_texture(texture &tex);
+  void write_texture(texture &tex) const;
+
+  inline
+  std::size_t get_width() const
+  {
+    return _width;
+  }
+
+  inline
+  std::size_t get_height() const
+  {
+    return _height;
+  }
 
 private:
   std::size_t _width;
   std::size_t _height;
+
+  Magick::Image _img;
 };
 }

@@ -186,8 +186,8 @@ void scene_get_nearest_intersection(const scene* ctx, const ray* r, path_vertex*
     float2 uv_background_coordinates;
 
     // cos_theta = dot(r->direction, [0,0,1])
-    scalar u = acospi(r->direction.z) * 0.5f + 0.5f;
-    scalar v = atan2pi(r->direction.y, r->direction.x) * 0.5f + 0.5f;
+    scalar v = acospi(r->direction.z);
+    scalar u = atan2pi(r->direction.y, r->direction.x) * 0.5f + 0.5f;
     uv_background_coordinates.x = u;
     uv_background_coordinates.y = v;
 

@@ -22,7 +22,7 @@
 
 #include <cassert>
 #include "qcl.hpp"
-#include "common.cl_hpp"
+#include "types.hpp"
 
 
 namespace gray {
