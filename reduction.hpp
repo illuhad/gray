@@ -139,7 +139,7 @@ private:
   std::size_t _buffer_size;
   qcl::buffer_ptr _buffer;
 
-  static constexpr std::size_t _group_size = 512;
+  static constexpr std::size_t _group_size = 256;
 
   static constexpr std::size_t _img_group_size2d = 8;
 

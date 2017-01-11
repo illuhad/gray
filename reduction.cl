@@ -53,20 +53,24 @@ __kernel void max_value_reduction(__global float* buffer,
   int local_id = get_local_id(0);
   int group_size = get_local_size(0);
 
-  partial[local_id] = buffer[get_global_id(0)];
-  barrier(CLK_LOCAL_MEM_FENCE);
-
-  for (int i = group_size / 2; i > 0; i >>= 1)
+  if (get_global_id(0) < get_global_size(0))
   {
-    if(local_id < i)
-    {
-      partial[local_id] = fmax(partial[local_id], partial[local_id + i]);
-    }
-    barrier(CLK_LOCAL_MEM_FENCE);
-  }
 
-  if(local_id == 0)
-    buffer[get_group_id(0)] = partial[0];
+    partial[local_id] = buffer[get_global_id(0)];
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int i = group_size / 2; i > 0; i >>= 1)
+    {
+      if (local_id < i)
+      {
+        partial[local_id] = fmax(partial[local_id], partial[local_id + i]);
+      }
+      barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (local_id == 0)
+      buffer[get_group_id(0)] = partial[0];
+  }
 }
 
 #endif

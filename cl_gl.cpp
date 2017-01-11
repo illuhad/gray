@@ -29,8 +29,8 @@ void cl_gl::init_environment()
   glewInit();
 }
 
-cl_gl::cl_gl(const gl_renderer* r, const cl::Context& context)
-: _renderer(r), _context(context)
+cl_gl::cl_gl(const gl_renderer* r, const cl::Context& context, bool gl_sharing)
+: _renderer(r), _context(context), _gl_sharing(gl_sharing)
 {
   init();
 }
@@ -69,12 +69,27 @@ void cl_gl::init()
                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
 
   cl_int err;
-  this->_cl_buffer = cl::ImageGL(_context, CL_MEM_READ_WRITE, GL_TEXTURE_2D, 0, _texture, &err);
+  if(_gl_sharing)
+  {
+    this->_cl_buffer = std::make_shared<cl::ImageGL>(_context, CL_MEM_READ_WRITE, 
+                                                    GL_TEXTURE_2D, 0,
+                                                     _texture, &err);
+  }
+  else
+  {
+    this->_cl_buffer = std::make_shared<cl::Image2D>(_context, CL_MEM_READ_WRITE,
+                                                    cl::ImageFormat{CL_RGBA, CL_UNORM_INT8}, 
+                                                    _renderer->get_width(),
+                                                    _renderer->get_height(), 
+                                                    0, nullptr, &err);
+    this->_host_cl_buffer.resize(4 * _renderer->get_width() * _renderer->get_height());
+  }
+
   if(err != CL_SUCCESS)
-    throw std::runtime_error("Could not create ImageGL!");
+    throw std::runtime_error("Could not create Image!");
   
   this->_gl_objects.clear();
-  this->_gl_objects.push_back(_cl_buffer);
+  this->_gl_objects.push_back(*_cl_buffer);
   
   glBindTexture( GL_TEXTURE_2D, 0 );
   glFinish();
@@ -87,15 +102,38 @@ void cl_gl::display(kernel_executor_type kernel_call, cl::CommandQueue& queue)
   // Call Kernel
   glFinish();
 
-  cl_int err = queue.enqueueAcquireGLObjects(&_gl_objects, NULL, NULL);
-  assert(err == CL_SUCCESS);
-  
-  kernel_call(this->_cl_buffer, _renderer->get_width(), _renderer->get_height());
-  
-  err = queue.enqueueReleaseGLObjects(&_gl_objects, NULL, NULL);
-  assert(err == CL_SUCCESS);
-  queue.finish();
-  
+  if (this->_gl_sharing)
+  {
+    cl_int err = queue.enqueueAcquireGLObjects(&_gl_objects, NULL, NULL);
+    assert(err == CL_SUCCESS);
+
+    kernel_call(*(this->_cl_buffer), _renderer->get_width(), _renderer->get_height());
+
+    err = queue.enqueueReleaseGLObjects(&_gl_objects, NULL, NULL);
+    assert(err == CL_SUCCESS);
+    queue.finish();
+  }
+  else
+  {
+    // We need to load the data explicitly into the texture
+    kernel_call(*(this->_cl_buffer), _renderer->get_width(), _renderer->get_height());
+    queue.finish();
+    cl_int err;
+    err = queue.enqueueReadImage(*_cl_buffer, CL_TRUE,
+                           {{0, 0, 0}},
+                           {{_renderer->get_width(), _renderer->get_height(), 1}},
+                           0, 0, _host_cl_buffer.data(), nullptr, nullptr);
+    assert(err == CL_SUCCESS);
+    queue.finish();
+
+    // Copy Image to GL texture
+    glBindTexture(GL_TEXTURE_2D, this->_texture);
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, 
+               static_cast<GLsizei>(_renderer->get_width()),
+               static_cast<GLsizei>(_renderer->get_height()),
+               0, GL_RGBA, GL_UNSIGNED_BYTE, _host_cl_buffer.data() );  
+  }
+
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   glBindTexture(GL_TEXTURE_2D, this->_texture);
   

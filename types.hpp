@@ -20,7 +20,7 @@
 #ifndef TYPES_HPP
 #define TYPES_HPP
 
-#include <CL/cl.hpp>
+#include <CL/cl2.hpp>
 
 namespace gray {
 

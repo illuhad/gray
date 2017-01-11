@@ -154,26 +154,25 @@ public:
     _kernel->setArg(1, *_buffer_b);
     _kernel->setArg(2, static_cast<cl_int>(_total_num_rays));
     _kernel->setArg(3, _random.get());
-    _kernel->setArg(4, sizeof(cl_float) * _work_group_size * _work_group_size, nullptr);
-    _kernel->setArg(5, sizeof(device_object::camera), &cam);
-    _kernel->setArg(6, _num_rays_ppx);
+    _kernel->setArg(4, sizeof(device_object::camera), &cam);
+    _kernel->setArg(5, _num_rays_ppx);
 
-    _kernel->setArg(7, s.get_objects());
-    _kernel->setArg(8, s.get_spheres());
-    _kernel->setArg(9, s.get_planes());
-    _kernel->setArg(10, s.get_disks());
-    _kernel->setArg(11, static_cast<cl_int>(s.get_num_spheres()));
-    _kernel->setArg(12, static_cast<cl_int>(s.get_num_planes()));
-    _kernel->setArg(13, static_cast<cl_int>(s.get_num_disks()));
-    _kernel->setArg(14, s.get_far_clipping_distance());
+    _kernel->setArg(6, s.get_objects());
+    _kernel->setArg(7, s.get_spheres());
+    _kernel->setArg(8, s.get_planes());
+    _kernel->setArg(9, s.get_disks());
+    _kernel->setArg(10, static_cast<cl_int>(s.get_num_spheres()));
+    _kernel->setArg(11, static_cast<cl_int>(s.get_num_planes()));
+    _kernel->setArg(12, static_cast<cl_int>(s.get_num_disks()));
+    _kernel->setArg(13, s.get_far_clipping_distance());
 
-    _kernel->setArg(15, s.get_materials().get_scattered_fraction());
-    _kernel->setArg(16, s.get_materials().get_emitted_light());
-    _kernel->setArg(17, s.get_materials().get_transmittance_refraction_specular());
-    _kernel->setArg(18, s.get_materials().get_widths());
-    _kernel->setArg(19, s.get_materials().get_heights());
-    _kernel->setArg(20, s.get_materials().get_offsets());
-    _kernel->setArg(21, static_cast<cl_int>(s.get_materials().get_num_material_maps()));
+    _kernel->setArg(14, s.get_materials().get_scattered_fraction());
+    _kernel->setArg(15, s.get_materials().get_emitted_light());
+    _kernel->setArg(16, s.get_materials().get_transmittance_refraction_specular());
+    _kernel->setArg(17, s.get_materials().get_widths());
+    _kernel->setArg(18, s.get_materials().get_heights());
+    _kernel->setArg(19, s.get_materials().get_offsets());
+    _kernel->setArg(20, static_cast<cl_int>(s.get_materials().get_num_material_maps()));
 
     assert(_kernel_run_event.size() == 1);
 
@@ -267,7 +266,7 @@ private:
 
     cl::Event buffer_fill;
 
-    cl::size_t<3> range;
+    cl::array<std::size_t,3> range;
     range[0] = width;
     range[1] = height;
     range[2] = 1;
@@ -275,7 +274,7 @@ private:
     cl_float4 fill_value = {{0.0f, 0.0f, 0.0f, 0.0f}};
     _ctx->get_command_queue().enqueueFillImage(*ptr,
                                                fill_value,
-                                               cl::size_t<3>{},
+                                               cl::array<std::size_t,3>{},
                                                range,
                                                nullptr, &buffer_fill);
     buffer_fill.wait();

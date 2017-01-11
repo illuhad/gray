@@ -21,7 +21,7 @@
 #define CL_GL_HPP
 
 
-#include <CL/cl.hpp>
+#include "qcl.hpp"
 #include <functional>
 #include <GL/gl.h>
 
@@ -32,10 +32,10 @@ class cl_gl
 public:
   static void init_environment();
   
-  cl_gl(const gl_renderer* r, const cl::Context& context);
+  cl_gl(const gl_renderer* r, const cl::Context& context, bool gl_sharing=true);
   ~cl_gl();
   
-  typedef std::function<void (const cl::ImageGL&, std::size_t, std::size_t)> 
+  typedef std::function<void (const cl::Image&, std::size_t, std::size_t)> 
         kernel_executor_type;
   
   void display(kernel_executor_type kernel_call, cl::CommandQueue& queue);
@@ -44,13 +44,17 @@ public:
 private:
   void init();
   void release();
- 
+
+  const bool _gl_sharing;
+
   const gl_renderer* _renderer;
   GLuint _texture;
   cl::Context _context;
   
-  cl::ImageGL _cl_buffer;
+  std::shared_ptr<cl::Image> _cl_buffer;
   std::vector<cl::Memory> _gl_objects;
+
+  std::vector<uint8_t> _host_cl_buffer;
 };
 
 #endif

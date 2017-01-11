@@ -23,7 +23,7 @@
 
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_HPP_MINIMUM_OPENCL_VERSION 120
-#include <CL/cl.hpp>
+#include <CL/cl2.hpp>
 #ifndef WITHOUT_GL_INTEROP
 #ifdef WIN32
 // What is the correct header?
@@ -536,10 +536,8 @@ private:
   void compile_source(const std::string& program_src,
                   cl::Program& program) const
   {
-    const char* program_src_char = program_src.c_str();
-    std::size_t program_len = program_src.length()+1;
-    cl::Program::Sources src(1, 
-                            std::make_pair(program_src_char, program_len));
+    cl::Program::Sources src{1, 
+                            program_src};
 
     program = cl::Program(_context, src);
 
@@ -592,8 +590,6 @@ public:
   explicit global_context(const std::vector<device_context_ptr>& contexts)
   : _contexts(contexts), _active_device(0)
   {
-    if(contexts.empty())
-      throw std::runtime_error("Tried to create global context without any valid devices!");
   }
   
   explicit global_context(const device_context_ptr& context)
@@ -684,37 +680,35 @@ public:
   }
   
   const cl::Platform&
-  get_platform_by_priority(const std::vector<std::string>& priority_keywords) const
+  get_platform_by_preference(const std::vector<std::string>& preference_keywords) const
   {
     if(_platforms.size() == 0)
       throw std::runtime_error("No available OpenCL platforms!");
     
-    std::size_t current_best_platform_index = 0;
-    std::size_t priority = 0;
-    for(std::size_t j = 0; j < priority_keywords.size(); ++j)
+    for(const std::string& keyword : preference_keywords)
     {
-      for(std::size_t i = 0; i < _platforms.size(); ++i)
+      for (const cl::Platform& platform : _platforms)
       {
-        std::size_t current_priority = 0;
-        
-        std::string platform_vendor = get_platform_vendor(_platforms[i]);
-        
-        if(platform_vendor.find(priority_keywords[j]) != std::string::npos)
+        std::string platform_vendor = get_platform_vendor(platform);
+        std::string platform_name = get_platform_name(platform);
+
+        std::vector<cl::Device> devices;
+        this->get_devices(platform, devices);
+
+        // No need to consider empty platforms
+        if(!devices.empty())
         {
-          current_priority = priority_keywords.size() - j;
-          
-          if(current_priority >= priority)
-          {
-            priority = current_priority;
-            current_best_platform_index = i;
-          }
+          bool keyword_found_in_name = platform_name.find(keyword) != std::string::npos;
+          bool keyword_found_in_vendor = platform_vendor.find(keyword) != std::string::npos;
+          if (keyword_found_in_name || keyword_found_in_vendor)
+            return platform;
         }
       }
     }
-    
-    return _platforms[current_best_platform_index];
+
+    return _platforms[0];
   }
-  
+
   static
   std::string get_platform_vendor(const cl::Platform& platform)
   {

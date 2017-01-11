@@ -216,21 +216,61 @@ public:
   {
     image::initialize(argc, argv);
     
-    launch_realtime_renderer(argc, argv);
+    bool offline = false;
+    bool disable_gl_sharing = false;
+
+    std::vector<std::string> platform_preferences = {"NVIDIA", "AMD", "Intel"};
+
+    if (argc > 1)
+    {
+      for(std::size_t i = 1; i < static_cast<std::size_t>(argc); ++i)
+      {
+        if(argv[i] == std::string{"--offline"})
+          offline = true;
+        else if(argv[i] == std::string{"--disable_gl_sharing"})
+          disable_gl_sharing = true;
+        else if(argv[i] == std::string{"--prefer_platform"})
+        {
+          if(i == static_cast<std::size_t>(argc) - 1)
+            throw std::invalid_argument("Invalid argument: Expected platform keyword.");
+
+          std::string keyword = argv[i + 1];
+          platform_preferences.insert(platform_preferences.begin(), keyword);
+
+          ++i;
+        }
+      }
+    }
+    
+    print_platforms(_environment);
+
+    if(offline)
+      launch_offline_renderer(platform_preferences);
+    else
+    {
+      // Initialise interoperability environment
+      cl_gl::init_environment();
+      // Initialise render window
+      gl_renderer::instance().init("gray", 640, 480, argc, argv);
+      if(disable_gl_sharing)
+        launch_realtime_renderer(platform_preferences, false);
+      else
+      {
+        if(!launch_realtime_renderer(platform_preferences, true))
+        {
+          // The renderer could not be startet - try without gl sharing
+          std::cout << "Could not start renderer - disabling OpenCL/OpenGL object sharing and trying again"
+                    << std::endl;
+          if(!launch_realtime_renderer(platform_preferences, false))
+            throw std::runtime_error("Could not start fallback renderer.");
+        }
+      }
+    }
   }
 
 private:
-  
-
-  void launch_realtime_renderer(int argc, char** argv)
+  void print_platforms(const qcl::environment& env) const
   {
-    // Initialise interoperability environment
-    cl_gl::init_environment();
-    // Initialise render window
-    gl_renderer::instance().init("gray", 640, 480, argc, argv);
-
-    // Initialise OpenCL
-    qcl::environment env;
     for (std::size_t i = 0; i < env.get_num_platforms(); ++i)
     {
       std::cout << "Platform " << i << ": "
@@ -238,13 +278,13 @@ private:
                 << " [" << env.get_platform_vendor(env.get_platform(i)) << "]"
                 << std::endl;
     }
-
-    qcl::global_context_ptr global_ctx = env.create_global_gl_shared_context();
-
+  }
+  
+  void print_devices(const qcl::global_context_ptr& global_ctx) const
+  {
     if (global_ctx->get_num_devices() == 0)
     {
       std::cout << "No suitable OpenCL devices!" << std::endl;
-      return;
     }
     else
     {
@@ -253,8 +293,11 @@ private:
         std::cout << "    Device " << i << ": "
                   << global_ctx->device(i)->get_device_name() << std::endl;
     }
+  }
+
+  void prepare_cl(qcl::global_context_ptr global_ctx) const
+  {
     // Compile sources and register kernels
-    std::vector<std::string> kernels = {"trace_paths"};
     global_ctx->global_register_source_file("pathtracer.cl", {"trace_paths"});
     global_ctx->global_register_source_file("postprocessing.cl", {"hdr_color_compression"});
     global_ctx->global_register_source_file("reduction.cl", {"max_value_reduction_init",
@@ -266,38 +309,78 @@ private:
     ctx->get_supported_extensions(extensions);
 
     std::cout << "Supported extensions: " << extensions << std::endl;
+  }
 
-    // Create OpenGL <-> OpenCL interoperability
-    auto cl_gl_interop = cl_gl{
-        &(gl_renderer::instance()), ctx->get_context()};
 
-    // Create scene
+  void launch_offline_renderer(const std::vector<std::string>& platform_preferences) const
+  {
+    const cl::Platform &selected_platform = _environment.get_platform_by_preference(platform_preferences);
+    qcl::global_context_ptr global_ctx = _environment.create_global_context(selected_platform);
+
+    print_devices(global_ctx);
+    if(global_ctx->get_num_devices()==0)
+      throw std::runtime_error{"No devices found"};
+      
+    prepare_cl(global_ctx);
+    qcl::device_context_ptr ctx = global_ctx->device();
+
     auto scene = setup_scene(ctx);
     auto camera = setup_camera(ctx);
-
-    // Create and launch rendering engine
-    auto realtime_renderer = gray::realtime_window_renderer{
-        ctx,
-        &cl_gl_interop,
-        scene.get(),
-        camera.get()};
-
-    realtime_renderer.get_render_engine().set_target_fps(20.0);
-
-    gray::input_handler input;
-    realtime_renderer.launch();
-    gray::interactive_camera_control cam_controller(input, camera.get(),
-                                                    &realtime_renderer);
-    gray::interactive_program_control program_controller(input);
-    gl_renderer::instance().render_loop();
   }
+  
 
-  void launch_offline_renderer()
+  bool launch_realtime_renderer(const std::vector<std::string>& platform_preferences, bool gl_sharing = true) const
   {
 
-  }
-};
+    // Initialise OpenCL
+    qcl::global_context_ptr global_ctx;
+    if(gl_sharing)
+      global_ctx = _environment.create_global_gl_shared_context();
+    else
+    {
+      const cl::Platform &selected_platform = _environment.get_platform_by_preference(platform_preferences);
 
+      global_ctx = _environment.create_global_context(selected_platform);
+    }
+
+    print_devices(global_ctx);
+    if (global_ctx->get_num_devices() > 0)
+    {
+      prepare_cl(global_ctx);
+
+      qcl::device_context_ptr ctx = global_ctx->device();
+
+      // Create OpenGL <-> OpenCL interoperability
+      auto cl_gl_interop = cl_gl{
+          &(gl_renderer::instance()), ctx->get_context(), gl_sharing};
+
+      // Create scene
+      auto scene = setup_scene(ctx);
+      auto camera = setup_camera(ctx);
+
+      // Create and launch rendering engine
+      auto realtime_renderer = gray::realtime_window_renderer{
+          ctx,
+          &cl_gl_interop,
+          scene.get(),
+          camera.get()};
+
+      realtime_renderer.get_render_engine().set_target_fps(20.0);
+
+      gray::input_handler input;
+      realtime_renderer.launch();
+      gray::interactive_camera_control cam_controller(input, camera.get(),
+                                                      &realtime_renderer);
+      gray::interactive_program_control program_controller(input);
+      gl_renderer::instance().render_loop();
+
+      return true;
+    }
+    return false;
+  }
+
+  qcl::environment _environment;
+};
 }
 
 int main(int argc, char* argv[])

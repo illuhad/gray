@@ -152,7 +152,6 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                           __read_only image2d_t current_render_state, //output of previous kernel
                           int num_previous_rays,
                           __global int *permanent_random_state_buffer,
-                          __local int* random,
                           camera cam,
                           int rays_per_pixel,
 
@@ -183,9 +182,11 @@ __kernel void trace_paths(__write_only image2d_t pixels,
   int px_x = get_global_id(0);
   int px_y = get_global_id(1);
 
+  random_ctx random;
+
   if(px_x < width && px_y < height)
   {
-    random_init(random, permanent_random_state_buffer);
+    random_init(&random, permanent_random_state_buffer);
     // Initialize scene object
     int num_objects = num_spheres + num_planes + num_disks;
     scene s;
@@ -213,9 +214,9 @@ __kernel void trace_paths(__write_only image2d_t pixels,
     ray r;
     for (int i = 0; i < rays_per_pixel; ++i)
     {
-      camera_generate_ray(&cam, random, width, height, px_x, px_y, &r);
+      camera_generate_ray(&cam, &random, width, height, px_x, px_y, &r);
 
-      pixel_value += evaluate_ray(&r, random, &s);
+      pixel_value += evaluate_ray(&r, &random, &s);
     }
 
     // Save result
@@ -230,7 +231,7 @@ __kernel void trace_paths(__write_only image2d_t pixels,
     color.w = 1.f;
 
     write_imagef(pixels, coord, color);
-    random_fini(random, permanent_random_state_buffer);
+    random_fini(&random);
   }
   //else
   //  printf("res %d %d, %d %d: not processing\n", width, height, px_x, px_y);

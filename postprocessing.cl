@@ -112,6 +112,7 @@ __kernel void hdr_color_compression(__write_only image2d_t output_pixels,
     result_pixel.z = color_post_process(result_pixel.z, avg_max_value);
     result_pixel.w = 1.0f;
     coord = (int2)(px_x, px_y);
+
     write_imagef(output_pixels, coord, result_pixel);
   }
 }

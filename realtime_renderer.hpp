@@ -77,7 +77,7 @@ private:
   void display()
   {
     auto rendering_call =
-        [this](const cl::ImageGL &pixels, std::size_t width, std::size_t height) {
+        [this](const cl::Image &pixels, std::size_t width, std::size_t height) {
 
           if (_renderer.get_resolution_width() == width ||
               _renderer.get_resolution_height() == height)

@@ -21,7 +21,12 @@
 
 #include "math.cl"
 
-typedef __local int random_ctx;
+//typedef __local int random_ctx;
+typedef struct
+{
+  __global int *state_buffer;
+  int local_state;
+} random_ctx;
 
 __constant const unsigned random_max = 2147483647;
 __constant const unsigned long random_a = 16807;
@@ -31,17 +36,16 @@ __constant const unsigned long random_a = 16807;
 void random_init(random_ctx* ctx, __global int* state_buffer)
 {
   int global_id = get_global_id(0) * get_global_size(1) + get_global_id(1);
-  int local_id = get_local_id(0) * get_local_size(1) + get_local_id(1);
 
-  ctx[local_id] = state_buffer[global_id];
+  ctx->state_buffer = state_buffer;
+  ctx->local_state = state_buffer[global_id];
 }
 
-void random_fini(random_ctx* ctx, __global int* state_buffer)
+void random_fini(random_ctx* ctx)
 {
   int global_id = get_global_id(0) * get_global_size(1) + get_global_id(1);
-  int local_id = get_local_id(0) * get_local_size(1) + get_local_id(1);
 
-  state_buffer[global_id] = ctx[local_id];
+  ctx->state_buffer[global_id] = ctx->local_state;
 }
 
 int random_serial_int(int* state)
@@ -60,12 +64,8 @@ scalar random_serial_scalar(int* state)
 
 scalar random_uniform_scalar(random_ctx* ctx)
 {
-  int local_id = get_local_id(0) * get_local_size(1) + get_local_id(1);
-
-  int state = ctx[local_id];
-  scalar random_number = random_serial_scalar(&state);
-  ctx[local_id] = state;
-  
+  scalar random_number = random_serial_scalar(&(ctx->local_state));
+ 
   return random_number;
 }
 
@@ -81,11 +81,8 @@ scalar random_uniform_scalar_minmax(random_ctx* ctx, const scalar min, const sca
 
 int random_uniform_int(random_ctx* ctx)
 {
-  int global_id = get_global_id(1) * get_global_size(0) + get_global_id(0);
-  
-  int state = ctx[global_id];
-  int random_number = random_serial_int(&state);
-  ctx[global_id] = random_number;
+
+  int random_number = random_serial_int(&(ctx->local_state));
   
   return random_number;
 }
