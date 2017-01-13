@@ -41,12 +41,12 @@ public:
                               rgb_color emitted_light,
                               scalar transmittance,
                               scalar refraction_index,
-                              scalar specular)
+                              scalar roughness)
   {
     texture scattered_fraction_map = material.get_scattered_fraction();
     texture emitted_light_map = material.get_emitted_light();
-    texture transmittance_refraction_specular_map = 
-          material.get_transmittance_refraction_specular();
+    texture transmittance_refraction_roughness_map = 
+          material.get_transmittance_refraction_roughness();
 
     for (std::size_t x = 0; x < scattered_fraction_map.get_width(); ++x)
     {
@@ -54,11 +54,11 @@ public:
       {
         rgba_color scattered = embed_rgb_in_rgba(scattered_fraction, 0.0f);
         rgba_color emitted = embed_rgb_in_rgba(emitted_light, 0.0f);
-        rgba_color additional_properties = {{transmittance, refraction_index, specular, 0.0f}};
+        rgba_color additional_properties = {{transmittance, refraction_index, roughness, 0.0f}};
 
         scattered_fraction_map.write(scattered, x, y);
         emitted_light_map.write(emitted, x, y);
-        transmittance_refraction_specular_map.write(additional_properties, x, y);
+        transmittance_refraction_roughness_map.write(additional_properties, x, y);
       }
     }
   }
@@ -68,12 +68,12 @@ public:
                               rgb_color scattered_fraction,
                               scalar transmittance,
                               scalar refraction_index,
-                              scalar specular)
+                              scalar roughness)
   {
     create_uniform_material(material, 
                             scattered_fraction, 
                             {{0.0f, 0.0f, 0.0f, 0.0f}}, 
-                            transmittance, refraction_index, specular);
+                            transmittance, refraction_index, roughness);
   }
 
   inline static
@@ -94,11 +94,11 @@ public:
                               rgb_color emitted_light,
                               scalar transmittance,
                               scalar refraction_index,
-                              scalar specular)
+                              scalar roughness)
   {
     create_uniform_material(_materials->get_material_map(id),
                             scattered_fraction, emitted_light, 
-                            transmittance, refraction_index, specular);
+                            transmittance, refraction_index, roughness);
   }
 
   inline 
@@ -106,11 +106,11 @@ public:
                               rgb_color scattered_fraction,
                               scalar transmittance,
                               scalar refraction_index,
-                              scalar specular)
+                              scalar roughness)
   {
     create_uniform_material(_materials->get_material_map(id),
                             scattered_fraction, 
-                            transmittance, refraction_index, specular);
+                            transmittance, refraction_index, roughness);
   }
 
 

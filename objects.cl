@@ -32,7 +32,7 @@ typedef struct
   intensity emitted_light;
   scalar transmittance;
   scalar refraction_index;
-  scalar specular_power;
+  scalar roughness;
 } material;
 
 typedef struct
@@ -41,8 +41,8 @@ typedef struct
   __global float4* scattered_fraction;
   //xyz = RGB
   __global float4* emitted_light;
-  //xyz = Transmittance, Refraction index, Specular power
-  __global float4* transmittance_refraction_specular;
+  //xyz = Transmittance, Refraction index, roughness
+  __global float4* transmittance_refraction_roughness;
 
   int width;
   int height;
@@ -52,7 +52,7 @@ typedef struct
 {
   __global float4* scattered_fraction;
   __global float4* emitted_light;
-  __global float4* transmittance_refraction_specular;
+  __global float4* transmittance_refraction_roughness;
 
   __global int* width;
   __global int* height;

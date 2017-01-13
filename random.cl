@@ -89,6 +89,7 @@ int random_uniform_int(random_ctx* ctx)
 
 vector3 random_uniform_sphere(random_ctx* ctx)
 {
+  /*
   scalar x1, x2;
   scalar r;
   do
@@ -104,7 +105,17 @@ vector3 random_uniform_sphere(random_ctx* ctx)
   vector3 result;
   result.x = 2 * x1 * sqrt_term;
   result.y = 2 * x2 * sqrt_term;
-  result.z = 1.f - 2 * r;
+  result.z = 1.f - 2 * r; */
+
+  scalar u = random_uniform_scalar_minmax(ctx, -1.f, 1.f);
+  scalar phi = random_uniform_scalar_minmax(ctx, 0, 2.f * M_PI_F);
+  scalar sqrt_term = sqrt(1.f - u);
+  scalar cos_phi = cos(phi);
+  vector3 result;
+  result.x = sqrt_term * cos_phi;
+  result.y = sqrt_term * sin(phi);
+  result.z = u;
+
   return result;
 }
 
@@ -143,5 +154,48 @@ vector3 random_cosine(random_ctx* ctx, vector3 distribution_center)
   
   return result;
 }
-        
+
+vector3 random_point_on_cone(random_ctx* ctx, vector3 distribution_center, scalar cos_theta)
+{
+  vector3 first_basis_vector = distribution_center;
+  // Make sure vector is different than the basis vector
+  first_basis_vector.x += 1.0f;
+  first_basis_vector = normalize(cross(distribution_center, first_basis_vector));
+
+  vector3 second_basis_vector = cross(first_basis_vector, distribution_center);
+
+  scalar phi = random_uniform_scalar_minmax(ctx, 0.0f, 2.0f * M_PI_F);
+  scalar sqrt_term = sqrt(1.f - cos_theta * cos_theta);
+
+  vector3 result = sqrt_term * cos(phi) * first_basis_vector;
+  result += sqrt_term * sin(phi) * second_basis_vector;
+  result += cos_theta * distribution_center;
+
+  return result;
+}
+
+scalar random_ggx_cos_theta(random_ctx* ctx, scalar roughness)
+{
+  scalar random_scalar = random_uniform_scalar(ctx);
+  //return atan(roughness * sqrt(random_scalar / (1.f - random_scalar)));
+  return sqrt((1.f - random_scalar) / (random_scalar * (roughness * roughness - 1.f) + 1.f));
+}
+
+scalar random_beckmann_cos_theta(random_ctx* ctx, scalar roughness)
+{
+  scalar random_scalar = random_uniform_scalar(ctx);
+  //return atan(-roughness * roughness * log(1.f - random_scalar));
+  return rsqrt(1.f - roughness * roughness * log(1.f - random_scalar));
+}
+
+vector3 random_isotropic_ggx(random_ctx* ctx, vector3 distribution_center, scalar roughness)
+{
+  return random_point_on_cone(ctx, distribution_center, random_ggx_cos_theta(ctx, roughness));
+}
+
+vector3 random_isotropic_beckmann(random_ctx* ctx, vector3 distribution_center, scalar roughness)
+{
+  return random_point_on_cone(ctx, distribution_center, random_beckmann_cos_theta(ctx, roughness));
+}
+
 #endif

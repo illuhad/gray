@@ -168,7 +168,7 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                           // Material Database
                           __global float4 * scattered_fraction_maps,
                           __global float4 *emitted_light_maps,
-                          __global float4 *transmittance_refraction_specular_maps,
+                          __global float4 *transmittance_refraction_roughness_maps,
                           __global int *widths,
                           __global int *heights,
                           __global unsigned long *offsets,
@@ -198,8 +198,8 @@ __kernel void trace_paths(__write_only image2d_t pixels,
 
     s.materials.scattered_fraction = scattered_fraction_maps;
     s.materials.emitted_light = emitted_light_maps;
-    s.materials.transmittance_refraction_specular =
-        transmittance_refraction_specular_maps;
+    s.materials.transmittance_refraction_roughness =
+        transmittance_refraction_roughness_maps;
     s.materials.width = widths;
     s.materials.height = heights;
     s.materials.offsets = offsets;

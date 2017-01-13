@@ -96,7 +96,7 @@ void scene_get_medium(const scene* ctx, vector3 position,
   medium_material->scattered_fraction = (intensity)(1, 1, 1);
   medium_material->emitted_light = (intensity)(0, 0, 0);
   medium_material->refraction_index = 1.f;
-  medium_material->specular_power = 0.0f;
+  medium_material->roughness = 0.0f;
   medium_material->transmittance = 1.0f;
 
 

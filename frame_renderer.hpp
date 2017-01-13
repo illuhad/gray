@@ -168,7 +168,7 @@ public:
 
     _kernel->setArg(14, s.get_materials().get_scattered_fraction());
     _kernel->setArg(15, s.get_materials().get_emitted_light());
-    _kernel->setArg(16, s.get_materials().get_transmittance_refraction_specular());
+    _kernel->setArg(16, s.get_materials().get_transmittance_refraction_roughness());
     _kernel->setArg(17, s.get_materials().get_widths());
     _kernel->setArg(18, s.get_materials().get_heights());
     _kernel->setArg(19, s.get_materials().get_offsets());

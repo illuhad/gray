@@ -44,28 +44,28 @@ setup_scene(const qcl::device_context_ptr& ctx)
   background.write_texture(background_emissive_texture);
 
   // Create materials
-  auto material1 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto material2 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto diffuse = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto material4 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
-  auto material5 = scene_ptr->get_materials().allocate_material_map(1024, 1024);
+  auto material1 = scene_ptr->get_materials().allocate_material_map(1, 1);
+  auto material2 = scene_ptr->get_materials().allocate_material_map(1, 1);
+  auto diffuse = scene_ptr->get_materials().allocate_material_map(1, 1);
+  auto material4 = scene_ptr->get_materials().allocate_material_map(1, 1);
+  auto material5 = scene_ptr->get_materials().allocate_material_map(512, 512);
   auto mirror_material =
-      scene_ptr->get_materials().allocate_material_map(1024, 1024);
+      scene_ptr->get_materials().allocate_material_map(1, 1);
   auto emissive_material =
-      scene_ptr->get_materials().allocate_material_map(1024, 1024);
+      scene_ptr->get_materials().allocate_material_map(1, 1);
   auto medium_material =
-      scene_ptr->get_materials().allocate_material_map(1024, 1024);
+      scene_ptr->get_materials().allocate_material_map(1, 1);
 
 
   material_fac.create_uniform_material(
     mirror_material,
     {{0.9f, 0.76f, 0.8f}},
-    0.0f, 1.0f, 100000.f);
+    0.0f, 1.0f, 1.e-5f);
 
   material_fac.create_uniform_material(
     medium_material,
     {{1.0f, 1.0f, 1.0f}},
-    1.0f, 1.0f, 100000.f);
+    1.0f, 1.0f, 1.e-5);
 
   material_fac.create_uniform_emissive_material(
       emissive_material,
@@ -74,32 +74,32 @@ setup_scene(const qcl::device_context_ptr& ctx)
   material_fac.create_uniform_material(
       material1,
       {{0.9f, 1.0f, 1.0f}},
-      1.0f, 1.6f, 1.e5f);
+      1.0f, 1.6f, 1.e-5f);
   
   material_fac.create_uniform_material(
       material2,
       {{0.2f, 0.4f, 0.2f}},
-      0.0f, 1.0f, 0.0f);
+      0.0f, 1.0f, 1.0f);
 
   material_fac.create_uniform_material(
       diffuse,
       {{0.8f, 0.8f, 0.8f}},
-      0.0f, 1.0f, 0.0f);
+      0.0f, 1.0f, 0.8f);
 
   material_fac.create_uniform_material(
       material4,
       {{0.5f, 0.6f, 0.9f}},
       {{0.1f, 0.3f, 1.4f}},
-      0.0f, 1.0f, 0.0f);
+      0.0f, 1.0f, 1.0f);
 
   material_fac.create_uniform_material(
       material5,
       {{0.5f, 0.8f, 0.14f}},
       //{{0.5f, 0.8f, 0.14f}},
-      0.0f, 1.5f, 0.0f);
+      0.0f, 1.0f, 0.8f);
 
   gray::texture material5_trs = 
-    scene_ptr->get_materials().get_material_map(material5).get_transmittance_refraction_specular();
+    scene_ptr->get_materials().get_material_map(material5).get_transmittance_refraction_roughness();
   gray::texture material5_scattered =
       scene_ptr->get_materials().get_material_map(material5).get_scattered_fraction();
   gray::texture emitted_mat_tex = 
@@ -114,9 +114,9 @@ setup_scene(const qcl::device_context_ptr& ctx)
                             static_cast<gray::scalar>(material5_trs.get_height());
 
       auto val = material5_trs.read(x,y);
-      val.s[2] = std::sin(y_normalized * 2 * 2 * 3.145f) *
-                     10000.f +
-                 10000.f;
+      val.s[2] = std::sin(y_normalized * 8 * 2 * 3.145f) *
+                     0.1f +
+                 0.1f;
 
       material5_trs.write(val, x, y);
 
@@ -124,12 +124,6 @@ setup_scene(const qcl::device_context_ptr& ctx)
       //val.s[0] = 0.5f * std::cos(10 * M_PI * x_normalized) + 0.5f;
       material5_scattered.write(val, x, y);
 
-      val = emitted_mat_tex.read(x, y);
-
-      val.s[0] = 0.35f *  std::cos(x_normalized * 2 * M_PI * 3) + 0.35f;
-      val.s[1] = 0.6f *  std::sin((x_normalized*y_normalized)* 2 * M_PI * 3) + 0.6f;
-      val.s[2] = 0.35f * std::sin(y_normalized * 2 * M_PI * 3) + 0.35f;
-      emitted_mat_tex.write(val, x, y);
     }
 
   scene_ptr->add_sphere({{0.0, -0.4, 0.1}},
@@ -144,10 +138,10 @@ setup_scene(const qcl::device_context_ptr& ctx)
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 0.0}},
                         0.3, material5);   
-  scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
+  /*scene_ptr->add_sphere({{0.0, -0.4, 0.1}}, 
                         {{0.0, 0.0, 1.0}}, 
                         {{1.0, 0.0, 0.0}},
-                        0.8, medium_material);                       
+                        0.8, medium_material); */                      
 
   scene_ptr->add_sphere({{3.0, 1.0, -3.0}}, 
                         {{0.0, 0.0, 1.0}}, 
@@ -251,7 +245,7 @@ public:
       // Initialise interoperability environment
       cl_gl::init_environment();
       // Initialise render window
-      gl_renderer::instance().init("gray", 640, 480, argc, argv);
+      gl_renderer::instance().init("gray", 1920, 1080, argc, argv);
       if(disable_gl_sharing)
         launch_realtime_renderer(platform_preferences, false);
       else
@@ -259,7 +253,7 @@ public:
         if(!launch_realtime_renderer(platform_preferences, true))
         {
           // The renderer could not be startet - try without gl sharing
-          std::cout << "Could not start renderer - disabling OpenCL/OpenGL object sharing and trying again"
+          std::cout << "Could not start renderer - disabling OpenCL/OpenGL object sharing and trying again..."
                     << std::endl;
           if(!launch_realtime_renderer(platform_preferences, false))
             throw std::runtime_error("Could not start fallback renderer.");

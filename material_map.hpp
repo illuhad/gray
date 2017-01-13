@@ -78,11 +78,11 @@ class material_map
 public:
   material_map(float4* scattered_fraction,
               float4* emitted_light,
-              float4* transmittance_refraction_specular,
+              float4* transmittance_refraction_roughness,
               std::size_t width, std::size_t height)
   : _scattered_fraction{scattered_fraction, width, height},
     _emitted_light{emitted_light, width, height},
-    _transmittance_refraction_specular{transmittance_refraction_specular, width, height}
+    _transmittance_refraction_roughness{transmittance_refraction_roughness, width, height}
     {}
   
   texture get_scattered_fraction()
@@ -105,19 +105,19 @@ public:
     return _emitted_light;
   }
 
-  texture get_transmittance_refraction_specular()
+  texture get_transmittance_refraction_roughness()
   {
-    return _transmittance_refraction_specular;
+    return _transmittance_refraction_roughness;
   }
-  const texture get_transmittance_refraction_specular() const
+  const texture get_transmittance_refraction_roughness() const
   {
-    return _transmittance_refraction_specular;
+    return _transmittance_refraction_roughness;
   }
 
 private:
   texture _scattered_fraction;
   texture _emitted_light;
-  texture _transmittance_refraction_specular;
+  texture _transmittance_refraction_roughness;
 };
 
 using material_map_id = portable_int;
@@ -139,8 +139,8 @@ public:
     std::size_t num_texels = width * height;
     _host_scattered_fraction.resize(_host_scattered_fraction.size() + num_texels);
     _host_emitted_light.resize(_host_emitted_light.size() + num_texels);
-    _host_transmittance_refraction_specular.resize(
-                _host_transmittance_refraction_specular.size() + num_texels);
+    _host_transmittance_refraction_roughness.resize(
+                _host_transmittance_refraction_roughness.size() + num_texels);
 
     _host_widths.push_back(static_cast<cl_int>(width));
     _host_heights.push_back(static_cast<cl_int>(height));
@@ -164,7 +164,7 @@ public:
     cl_ulong offset = _host_offsets[index];
     return material_map(_host_scattered_fraction.data() + offset, 
                         _host_emitted_light.data() + offset,
-                        _host_transmittance_refraction_specular.data() + offset,
+                        _host_transmittance_refraction_roughness.data() + offset,
                         static_cast<std::size_t>(_host_widths[index]),
                         static_cast<std::size_t>(_host_heights[index]));
   }
@@ -184,9 +184,9 @@ public:
     return _emitted_light;
   }
 
-  const cl::Buffer& get_transmittance_refraction_specular() const
+  const cl::Buffer& get_transmittance_refraction_roughness() const
   {
-    return _transmittance_refraction_specular;
+    return _transmittance_refraction_roughness;
   }
 
   const cl::Buffer& get_widths() const
@@ -217,9 +217,9 @@ public:
     _ctx->create_input_buffer<float4>(_emitted_light,
                                       _host_emitted_light.size(),
                                       _host_emitted_light.data());
-    _ctx->create_input_buffer<float4>(_transmittance_refraction_specular,
-                                      _host_transmittance_refraction_specular.size(),
-                                      _host_transmittance_refraction_specular.data());
+    _ctx->create_input_buffer<float4>(_transmittance_refraction_roughness,
+                                      _host_transmittance_refraction_roughness.size(),
+                                      _host_transmittance_refraction_roughness.data());
     _ctx->create_input_buffer<cl_int>(_width,
                                       _host_widths.size(),
                                       _host_widths.data());
@@ -238,7 +238,7 @@ public:
   {
     _host_scattered_fraction.clear();
     _host_emitted_light.clear();
-    _host_transmittance_refraction_specular.clear();
+    _host_transmittance_refraction_roughness.clear();
     _host_heights.clear();
     _host_widths.clear();
     _host_offsets.clear();
@@ -248,14 +248,14 @@ private:
 
   std::vector<float4> _host_scattered_fraction;
   std::vector<float4> _host_emitted_light;
-  std::vector<float4> _host_transmittance_refraction_specular;
+  std::vector<float4> _host_transmittance_refraction_roughness;
   std::vector<cl_int> _host_widths;
   std::vector<cl_int> _host_heights;
   std::vector<cl_ulong> _host_offsets;
 
   cl::Buffer _scattered_fraction;
   cl::Buffer _emitted_light;
-  cl::Buffer _transmittance_refraction_specular;
+  cl::Buffer _transmittance_refraction_roughness;
   cl::Buffer _width;
   cl::Buffer _height;
   int _num_material_maps;
