@@ -72,7 +72,7 @@ using command_queue_id = std::size_t;
 
 /// Represents the OpenCL context of a device. This class contains everything
 /// that is needed to execute OpenCL commands on a device. It stores one cl::Context,
-/// a cl::CommandQueue and a number of kernels that have been compiled for the device
+/// at least one cl::CommandQueue and a number of kernels that have been compiled for the device.
 class device_context
 {
 public:
@@ -233,10 +233,17 @@ public:
     
     if(!kernel)
       throw std::runtime_error("Requested kernel could not be found!");
-    
+
     return kernel;
   }
   
+  /// Create an OpenCL buffer object
+  /// \return A pointer to the created buffer object
+  /// \param flags The OpenCL flags for the allocated memory
+  /// \param size The number of elements to allocate
+  /// \tparam T The data type for which memory should be allocated
+  /// \param initial_data A pointer to data that will be used to initialize the buffer
+  /// if \c initial_data is not \c NULL.
   template<class T>
   buffer_ptr create_buffer(cl_mem_flags flags,
                    std::size_t size,
@@ -263,6 +270,13 @@ public:
     return buff;
   }
   
+  /// Create an OpenCL buffer object
+  /// \param out The resulting new buffer object
+  /// \param flags The OpenCL flags for the allocated memory
+  /// \param size The number of elements to allocate
+  /// \tparam T The data type for which memory should be allocated
+  /// \param initial_data A pointer to data that will be used to initialize the buffer
+  /// if \c initial_data is not \c NULL.
   template<class T>
   void create_buffer(cl::Buffer& out,
                    cl_mem_flags flags,
@@ -287,7 +301,13 @@ public:
     out = cl::Buffer(_context, flags, size * sizeof(T), initial_data, &err);
     check_cl_error(err, "Could not create buffer object!");
   }
-  
+
+  /// Creates a buffer that is read-only for the compute device.
+  /// \return A pointer to the created buffer object
+  /// \param size The number of elements to allocate
+  /// \tparam T The data type for which memory should be allocated
+  /// \param initial_data A pointer to data that will be used to initialize the buffer
+  /// if \c initial_data is not \c NULL.
   template<class T>
   buffer_ptr create_input_buffer(
                    std::size_t size,
@@ -296,6 +316,12 @@ public:
     return create_buffer<T>(CL_MEM_READ_ONLY, size, initial_data);
   }
   
+  /// Creates a buffer that is write-only for the compute device.
+  /// \return A pointer to the created buffer object
+  /// \param size The number of elements to allocate
+  /// \tparam T The data type for which memory should be allocated
+  /// \param initial_data A pointer to data that will be used to initialize the buffer
+  /// if \c initial_data is not \c NULL.
   template<class T>
   buffer_ptr create_output_buffer(
                    std::size_t size,
@@ -304,6 +330,12 @@ public:
     return create_buffer<T>(CL_MEM_WRITE_ONLY, size, initial_data);
   }
   
+  /// Creates a buffer that is read-only for the compute device.
+  /// \param out The created buffer object
+  /// \param size The number of elements to allocate
+  /// \tparam T The data type for which memory should be allocated
+  /// \param initial_data A pointer to data that will be used to initialize the buffer
+  /// if \c initial_data is not \c NULL.
   template<class T>
   void create_input_buffer(
                    cl::Buffer& out,
@@ -313,6 +345,12 @@ public:
     create_buffer<T>(out, CL_MEM_READ_ONLY, size, initial_data);
   }
   
+  /// Creates a buffer that is write-only for the compute device.
+  /// \param out The created buffer object
+  /// \param size The number of elements to allocate
+  /// \tparam T The data type for which memory should be allocated
+  /// \param initial_data A pointer to data that will be used to initialize the buffer
+  /// if \c initial_data is not \c NULL.
   template<class T>
   void create_output_buffer(
                    cl::Buffer& out,
@@ -459,12 +497,18 @@ public:
     check_cl_error(err, "Could not enqueue async buffer write!");
   }
   
+  /// Queries the OpenCL extensions supported by a given device.
+  /// \param device The OpenCL device
+  /// \param extensions A string that will be used to store a list of all supported extensions
   static void get_supported_extensions(const cl::Device& device, std::string& extensions)
   {
     check_cl_error(device.getInfo(CL_DEVICE_EXTENSIONS, &extensions),
                    "Could not query extensions!");
   }
   
+  /// \return Whether a given OpenCL extension is supported by a given device
+  /// \param device The OpenCL device
+  /// \param extension The name of the extension
   static bool is_extension_supported(const cl::Device& device, const std::string& extension)
   {
     std::string extensions;
@@ -472,16 +516,25 @@ public:
     return extensions.find(extension) != std::string::npos;
   }
   
+  /// Queries the extensions supported by the device.
+  /// \param extensions A string that will be used to store a list of the supported extensions
   void get_supported_extensions(std::string& extensions) const
   {
     get_supported_extensions(this->_device, extensions);
   }
   
+  /// \return Whether a given OpenCL extension is supported by the device
+  /// \param extension The name of the extension
   bool is_extension_supported(const std::string& extension) const
   {
     return is_extension_supported(this->_device, extension);
   }
 
+  /// Adds a new command queue to the device. Note that one command queue
+  /// is always created during the constuction of the \c device_context
+  /// object.
+  /// \return The id of the created queue
+  /// \param props Optional properties of the queue
   command_queue_id add_command_queue(cl_command_queue_properties props = 0)
   {
     cl_int err;
@@ -492,11 +545,14 @@ public:
     return _queues.size() - 1;
   }
 
+  /// Adds a new out-of-order command queue to the device
+  /// \return The id of the created queue
   command_queue_id add_out_of_order_command_queue()
   {
     return add_command_queue(CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE);
   }
 
+  /// \return The number of command queues
   std::size_t get_num_command_queues() const
   {
     return _queues.size();
@@ -512,6 +568,10 @@ public:
   }
 
 private:
+
+  /// Loads and creates specified kernel objects
+  /// \param prog The compiled OpenCL program
+  /// \param kernel_names The names of the kernels that shall be loaded
   void load_kernels(const cl::Program& prog, 
                     const std::vector<std::string>& kernel_names)
   {
@@ -525,6 +585,7 @@ private:
     }
   }
   
+  /// Initializes the device and creates a command queue.
   void init_device()
   {
     add_command_queue();
@@ -533,8 +594,11 @@ private:
                    "get_device_type(): Could not obtain device type");
   }
   
+  /// Compiles OpenCL source code and creates a cl::Program object.
+  /// \param program_src The OpenCL source code
+  /// \param program The newly created cl::Program object.
   void compile_source(const std::string& program_src,
-                  cl::Program& program) const
+                      cl::Program& program) const
   {
     cl::Program::Sources src{1, 
                             program_src};
@@ -556,6 +620,10 @@ private:
     }
   }
   
+  /// Compiles a file containing OpenCL source code and creates a
+  /// cl::Program object.
+  /// \param filename The name of the file
+  /// \param program The newly created cl::Program object.
   void compile_source_file(const std::string& filename, 
                  cl::Program& program) const
   {
@@ -570,47 +638,71 @@ private:
     compile_source(program_src, program);
   }
   
+  /// The OpenCL context for this device
   cl::Context _context;
+
+  /// The device object
   cl::Device _device;
   
+  /// The command queues for this device. One command
+  /// queue is always created during initialization.
   std::vector<cl::CommandQueue> _queues;
   
+  /// Stores the names of the kernels and their
+  /// corresponding kernel objects.
   std::map<std::string, kernel_ptr> _kernels;
   
+  /// The type of this device
   cl_device_type _device_type;
 };
 
 using device_context_ptr = std::shared_ptr<device_context>;
 using const_device_context_ptr = std::shared_ptr<const device_context>;
 
+/// The global context represents a collection of devices (typically all
+/// available devices for compute operations). It stores
+/// one \c device_context object for each device.
 class global_context
 {
 public:
-  
+  /// Create object
+  /// \param contexts A vector containing \c device_context pointers that
+  /// represent the devices that shall be managed by the \c global_context
+  /// object.
   explicit global_context(const std::vector<device_context_ptr>& contexts)
   : _contexts(contexts), _active_device(0)
   {
   }
   
+  /// Create \c global_context object based on only one device.
+  /// \param context The \c device_context
   explicit global_context(const device_context_ptr& context)
   : _contexts(1, context), _active_device(0)
   {
   }
   
+  // Object is uncopyable.
   global_context(const global_context& other) = delete;
   global_context& operator=(const global_context& other) = delete;
   
+  /// \return The number of devices in the global context
   std::size_t get_num_devices() const
   {
     return _contexts.size();
   }
   
+  /// Sets the default device returned by \c device()
+  /// \param device The index of the device
   void set_active_device(std::size_t device)
   {
     assert(device < _contexts.size());
     _active_device = device;
   }
   
+  /// Compiles a source file and registers kernels for all devices in
+  /// the global context.
+  /// \param cl_source_file The path the OpenCL source file
+  /// \param kernel_names The names of the kernels within the source file
   void global_register_source_file(const std::string& cl_source_file, 
                                const std::vector<std::string>& kernel_names)
   {
@@ -618,13 +710,21 @@ public:
       _contexts[i]->register_source_file(cl_source_file, kernel_names);
   }
   
+  /// Compiles OpenCL source code and registers kernels for all devices in
+  /// the global context.
+  /// \param cl_source The path the OpenCL source code
+  /// \param kernel_names The names of the kernels within the source file
   void global_register_source_code(const std::string& cl_source,
                     const std::vector<std::string>& kernel_names)
   {
     for(std::size_t i = 0; i < _contexts.size(); ++i)
       _contexts[i]->register_source_code(cl_source, kernel_names);
   }
-  
+
+  /// Compiles a QCL source module and registers kernels for all devices in
+  /// the global context.
+  /// \tparam Source_module_type The QCL source module
+  /// \param kernel_names The names of the kernels within the source file
   template<class Source_module_type>
   void global_register_source_module(const std::vector<std::string>& kernel_names)
   {
@@ -632,13 +732,15 @@ public:
       _contexts[i]->register_source_module<Source_module_type>(kernel_names);
   }
   
-  // Access active device
+  /// \return The currently active device
   const device_context_ptr&
   device() const
   {
     return _contexts[_active_device];
   }
   
+  /// \return The device with the given index
+  /// \param dev The device index
   const device_context_ptr&
   device(std::size_t dev) const
   {
@@ -655,30 +757,44 @@ private:
 using global_context_ptr = std::shared_ptr<global_context>;
 using const_global_context_ptr = std::shared_ptr<const global_context>;
 
+/// Represents the OpenCL environment and as such provides methods
+/// to query available platforms, devices and provides mechanisms
+/// to construct \c global_context objects.
 class environment
 {
 public:
+  /// Initializes the object
   environment()
   {
     check_cl_error(cl::Platform::get(&_platforms), "Could not obtain Platform list!");
   }
   
+  /// \return The available OpenCL platforms on this machine
   const std::vector<cl::Platform>& get_platforms() const
   {
     return _platforms;
   }
   
+  /// \return The number of available OpenCL platforms
   std::size_t get_num_platforms() const
   {
     return _platforms.size();
   }
   
+  /// \return The OpenCL platform with the given index
+  /// \param idx The index of the platform
   const cl::Platform& get_platform(std::size_t idx) const
   {
     assert(idx < _platforms.size());
     return _platforms[idx];
   }
   
+  /// Selects an OpenCL platform based on a list of preferences.
+  /// \return The selected platform.
+  /// \param preference_keywords Contains keywords that will be matched with
+  /// the platform names and vendors. Elements of \c preference_keywords with
+  /// a lower index will be assigned a higher priority. If no platform matches
+  /// any keyword, the first available platform will be returned.
   const cl::Platform&
   get_platform_by_preference(const std::vector<std::string>& preference_keywords) const
   {
@@ -709,28 +825,42 @@ public:
     return _platforms[0];
   }
 
+  /// \return The vendor of a given platform
+  /// \param platform The platform
   static
   std::string get_platform_vendor(const cl::Platform& platform)
   {
     std::string platform_vendor;
-    platform.getInfo((cl_platform_info)CL_PLATFORM_VENDOR, &platform_vendor);
+    platform.getInfo(static_cast<cl_platform_info>(CL_PLATFORM_VENDOR), &platform_vendor);
     return platform_vendor;
   }
   
+  /// \return The name of a given platform
+  /// \param platform The platform
   static
   std::string get_platform_name(const cl::Platform& platform)
   {
     std::string platform_name;
-    platform.getInfo((cl_platform_info)CL_PLATFORM_NAME, &platform_name);
+    platform.getInfo(static_cast<cl_platform_info>(CL_PLATFORM_NAME), &platform_name);
     return platform_name;
   }
   
+  /// Creates a device context for a given platform and device
+  /// \return The device context
+  /// \param platform The platform
+  /// \param device The device
   device_context_ptr create_device_context(const cl::Platform& platform, 
                                            const cl::Device& device) const
   {
     return device_context_ptr(new device_context(platform, device));
   }
   
+  /// Creates a global context containing all devices from a given platform
+  /// which are of a given device type.
+  /// \return The global context
+  /// \param platform The platform
+  /// \param type The type of the device that shall be included in the context.
+  /// If omitted, all available devices of the platform will be used.
   global_context_ptr create_global_context(const cl::Platform& platform, 
                                           cl_device_type type = CL_DEVICE_TYPE_ALL) const
   {
@@ -750,6 +880,11 @@ public:
     return global_ctx;
   }
   
+  /// Creates a global context containing all devices from all platforms
+  /// which are of a given device type.
+  /// \return The global context
+  /// \param type The type of the device that shall be included in the context.
+  /// If omitted, all available devices will be used.
   global_context_ptr create_global_context(cl_device_type type = CL_DEVICE_TYPE_ALL) const
   {
     std::vector<device_context_ptr> contexts;
@@ -772,17 +907,24 @@ public:
     return global_ctx;
   }
   
+  /// Creates a global context containing all available GPUs of the system.
+  /// \return The global context.
   global_context_ptr create_global_gpu_context() const
   {
     return create_global_context(CL_DEVICE_TYPE_GPU);
   }
   
+  /// Creates a global context containing all available CPUs of the system.
+  /// \return The global context.
   global_context_ptr create_global_cpu_context() const
   {
     return create_global_context(CL_DEVICE_TYPE_CPU);
   }
   
 #ifndef WITHOUT_GL_INTEROP
+  /// Creates a global context containing all devices which
+  /// can share OpenCL objects with OpenGL.
+  /// \return The global context.
   global_context_ptr create_global_gl_shared_context() const
   {
     std::vector<device_context_ptr> found_contexts;
@@ -811,16 +953,16 @@ public:
     cl_context_properties props [] =
     {
 #if defined WIN32
-      CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
-      CL_WGL_HDC_KHR,    (cl_context_properties)wglGetCurrentDC(),
+      CL_GL_CONTEXT_KHR, reinterpret_cast<cl_context_properties>(wglGetCurrentContext()),
+      CL_WGL_HDC_KHR,    reinterpret_cast(cl_context_properties>(wglGetCurrentDC()),
 #elif defined __APPLE__
       CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE, 
-              (cl_context_properties)CGLGetShareGroup(CGLGetCurrentContext()),
+              reinterpret_cast<cl_context_properties>(CGLGetShareGroup(CGLGetCurrentContext())),
 #else
-      CL_GL_CONTEXT_KHR, (cl_context_properties)glXGetCurrentContext(),
-      CL_GLX_DISPLAY_KHR,(cl_context_properties)glXGetCurrentDisplay(),
+      CL_GL_CONTEXT_KHR, reinterpret_cast<cl_context_properties>(glXGetCurrentContext()),
+      CL_GLX_DISPLAY_KHR,reinterpret_cast<cl_context_properties>(glXGetCurrentDisplay()),
 #endif
-      CL_CONTEXT_PLATFORM, (cl_context_properties)platform(),
+      CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(platform()),
       0,
     };
 

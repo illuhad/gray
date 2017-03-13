@@ -43,7 +43,15 @@ typedef struct
   scalar roll_angle;
 } camera;
 
-
+/// Generates a new ray originating at a given pixel
+/// \param ctx The camera
+/// \param rand The random number generator context
+/// \param width The number of pixels in x direction
+/// \param height The number of pixels in y direction
+/// \param px_x The pixel index in x direction
+/// \param px_y The pixel index in y direction
+/// \param r A pointer to a ray that will be used to store
+/// the generated ray.
 void camera_generate_ray(const camera* ctx, random_ctx* rand,
                         int width, int height,
                         int px_x, int px_y, ray* r)
@@ -92,6 +100,10 @@ void camera_generate_ray(const camera* ctx, random_ctx* rand,
   simple_lens_object_propagate_ray(&(ctx->camera_lens), &impact, rand, r);
 }
 
+/// Sets the cameras focal distance such that the nearest object in front of the
+/// pixel of the camera is focused.
+/// \param ctx The camera
+/// \param s The scene
 void camera_autofocus(camera* ctx, const scene* s)
 {
   ray test_ray;
@@ -104,6 +116,12 @@ void camera_autofocus(camera* ctx, const scene* s)
   ctx->camera_lens.focal_length = 1.f / (1.f / dist + 1.f / ctx->lens_plane_distance);
 }
 
+
+/// evaluates a given ray using a standard, unbiased path tracing algorithm
+/// \return The intensity of the sampled light path
+/// \param r The ray that shall be traced
+/// \param rand The random context that shall be used to generate random numbers
+/// \param s The scene
 intensity evaluate_ray(ray* r, random_ctx* rand, const scene* s)
 {
   path_vertex next_intersection;
@@ -148,6 +166,22 @@ __constant sampler_t pixel_sampler = CLK_NORMALIZED_COORDS_FALSE |
                                      CLK_ADDRESS_CLAMP_TO_EDGE |
                                      CLK_FILTER_NEAREST;
 
+
+/// Main kernel for the path tracing algorithm
+/// \param pixels An image into which the current rendering state will be written
+/// \param current_render_state The rendering state of the previous frame
+/// \param num_previous_rays The number of rays (per pixel) that have been evaluated until now
+/// \param permanent_random_state_buffer The state buffer of the random number generator
+/// \param cam The camera object
+/// \param rays_per_pixel How many rays per pixel to be evaluated
+/// \param objects The object list of the scene
+/// \param spheres The list of spheres in the scene
+/// \param planes The list of planes in the scene
+/// \param disks The list of disks in the scene
+/// \param num_spheres The number of spheres in the scene
+/// \param num_planes The number of planes in the scene
+/// \param num_disks The number of disks in the scene
+/// \param far_clipping_distance The distance at which the skydome is located
 __kernel void trace_paths(__write_only image2d_t pixels,
                           __read_only image2d_t current_render_state, //output of previous kernel
                           int num_previous_rays,

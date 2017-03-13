@@ -26,7 +26,7 @@ __constant sampler_t pixel_sampler = CLK_NORMALIZED_COORDS_FALSE |
 __kernel void max_value_reduction_init(__read_only image2d_t img,
                                        __global float* output)
 {
-  
+
   int width = get_image_width(img);
   int height = get_image_height(img);
 

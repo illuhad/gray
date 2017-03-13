@@ -96,8 +96,8 @@ typedef struct
 
 
 
-#define BACKGROUND_ID (-1)
 #define BACKGROUND_MATERIAL 0
+#define BACKGROUND_ID (-1)
 #define MEDIUM_ID (-2)
 
 #define CONCATENATE_NO_EXPAND(a, b) a ## b

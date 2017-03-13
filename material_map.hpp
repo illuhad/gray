@@ -152,7 +152,7 @@ public:
       _host_offsets.push_back(num_texels);
     }
 
-    _num_material_maps = _host_offsets.size() - 1;
+    _num_material_maps = static_cast<int>(_host_offsets.size() - 1);
 
     return _num_material_maps - 1;
   }
@@ -161,7 +161,7 @@ public:
   {
     assert(static_cast<std::size_t>(index) < _host_offsets.size());
 
-    cl_ulong offset = _host_offsets[index];
+    cl_ulong offset = static_cast<cl_ulong>(_host_offsets[index]);
     return material_map(_host_scattered_fraction.data() + offset, 
                         _host_emitted_light.data() + offset,
                         _host_transmittance_refraction_roughness.data() + offset,

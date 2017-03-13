@@ -57,7 +57,7 @@ float4 array2d_extract_interpolated(__global const float4* ctx,
        + f_x     * f_y     * x1y1;
 }
 
-material material_map_get_material(const material_map *ctx,
+material material_map_get_material(const material_map* ctx,
                                    float2 coord)
 {
   float2 clamped_coord = (float2)(clamp(coord.x, 0.0f, 1.0f), 
@@ -181,69 +181,6 @@ void material_propagate_ray(const material* ctx,
   scalar refraction_idx_n1 = impact->material_from.refraction_index;
   scalar refraction_idx_n2 = impact->material_to.refraction_index;
   
-  /*
-  vector3 anti_incident_normal = impact->normal;
-  if(dot(r->direction, anti_incident_normal) > 0.f)
-    anti_incident_normal *= -1.f;
-  
-  vector3 refracted_direction;
-  int total_reflection = !material_refract(ctx,
-                                          anti_incident_normal, 
-                                          r->direction, 
-                                          refraction_idx_n1, refraction_idx_n2,
-                                          &refracted_direction);
-  
-  
-  scalar cos_theta_incident = fabs(dot(impact->normal, r->direction));
-  scalar cos_theta_transmitted = fabs(dot(impact->normal, refracted_direction));
-  
-  scalar reflectance = material_fresnel_reflectance(ctx,
-                                                    cos_theta_incident,
-                                                    cos_theta_transmitted,
-                                                    refraction_idx_n1,
-                                                    refraction_idx_n2,
-                                                    total_reflection);
-  
-  vector3 reflected_direction = material_reflect(ctx,
-                                                 anti_incident_normal, 
-                                                 r->direction);
-  
-  vector3 outgoing_normal = anti_incident_normal;
-  vector3 cosine_center;
-  if(random_uniform_scalar(rand) > (1.f - reflectance) * ctx->transmittance)
-  {
-    // Reflect ray
-    cosine_center = reflected_direction;
-  }
-  else
-  {
-    // Transmit ray
-    if(!total_reflection)
-    {
-      cosine_center = refracted_direction;
-      outgoing_normal *= -1.f;
-    }
-    else
-    {
-      cosine_center = reflected_direction;
-    }
-  }
-  
-  vector3 new_direction;
-  scalar cos_theta;
-  do
-  {
-    new_direction = random_power_cosine(rand, cosine_center, ctx->roughness);
-    cos_theta = fabs(dot(impact->normal, new_direction));
-  } while(random_uniform_scalar(rand) > cos_theta);
-  material_remap_to_hemisphere(ctx, outgoing_normal, &new_direction);
-  
-  
-  r->direction = new_direction;
-  r->origin_vertex = *impact;
-  r->origin_vertex.position += self_shadowing_epsilon * outgoing_normal;
-  */
-
   // Sample normal direction
   vector3 normal = random_isotropic_beckmann(rand, impact->normal, ctx->roughness);
   //vector3 normal = random_power_cosine(rand, impact->normal, ctx->roughness);

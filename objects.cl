@@ -50,6 +50,13 @@ typedef struct
 
 typedef struct
 {
+  int scattered_fraction_texture_id;
+  int emitted_ligt_texture_id;
+  int transmittance_refraction_roughness_texture_id;
+} material_db_entry;
+
+typedef struct
+{
   __global float4* scattered_fraction;
   __global float4* emitted_light;
   __global float4* transmittance_refraction_roughness;

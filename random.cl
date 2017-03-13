@@ -81,7 +81,6 @@ scalar random_uniform_scalar_minmax(random_ctx* ctx, const scalar min, const sca
 
 int random_uniform_int(random_ctx* ctx)
 {
-
   int random_number = random_serial_int(&(ctx->local_state));
   
   return random_number;

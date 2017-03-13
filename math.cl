@@ -21,6 +21,7 @@
 
 #include "common_math.cl_hpp"
 
+/// \return A vector from a point to another point
 vector3 vec_from_to(vector3 from, vector3 to)
 {
   vector3 result = to;
@@ -33,6 +34,9 @@ vector3 normalized_vec_from_to(vector3 from, vector3 to)
   return normalize(vec_from_to(from, to));
 }
 
+/// \return whether two vectors are equal
+/// \param a The first vector
+/// \param b The second vector
 int vector_equals(vector3 a, vector3 b)
 {
   return (a.x == b.x) && (a.y == b.y) && (a.z == b.z);
