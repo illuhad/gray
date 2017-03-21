@@ -25,6 +25,8 @@
 #include "common.cl_hpp"
 #include "qcl.hpp"
 #include "material_map.hpp"
+#include "materials.hpp"
+#include "image.hpp"
 
 namespace gray {
 namespace device_object {
@@ -177,16 +179,18 @@ class scene
 {
 public:
   scene(const qcl::const_device_context_ptr& ctx,
-        std::size_t background_texture_width,
-        std::size_t background_texture_height,
+        std::shared_ptr<material_db> materials,
+        texture_id background_texture,
         scalar far_clipping_distance = 1.e5f)
   : _ctx{ctx}, 
     _far_clipping_distance{far_clipping_distance},
-    _materials{ctx}
+    _materials{materials}
   {
-    // Allocate background map
-    _materials.allocate_material_map(background_texture_width,
-                                    background_texture_height);
+    assert(_materials != nullptr);
+
+    material_factory fac{_materials.get()};
+    this->set_background_material(fac.create_background_material(
+                                    background_texture));
   }
 
   scene(const scene& other) = delete;
@@ -256,19 +260,14 @@ public:
     _host_disks.push_back(geometry);
   }
 
-  material_map access_background_map()
-  {
-    return _materials.get_material_map(0);
-  }
-
   const material_db& get_materials() const
   {
-    return _materials;
+    return *_materials;
   }
 
   material_db& get_materials()
   {
-    return _materials;
+    return *_materials;
   }
 
   int get_num_spheres() const
@@ -314,7 +313,7 @@ public:
   /// Performs a full data transfer to the device
   void transfer_data()
   {
-    _materials.transfer_data();
+    _materials->transfer_data();
     if (!_host_objects.empty())
     {
       _ctx->create_input_buffer<object_entry>(_objects,
@@ -336,7 +335,19 @@ public:
     }
   }
 
+
+  material_id get_background_material() const
+  {
+    return _background_material;
+  }
+
 private:
+
+  void set_background_material(material_id material)
+  {
+    _background_material = material;
+  }
+
   qcl::const_device_context_ptr _ctx;
 
   std::vector<object_entry> _host_objects;
@@ -351,7 +362,9 @@ private:
   cl::Buffer _planes;
   cl::Buffer _disks;
 
-  material_db _materials;
+  material_id _background_material;
+
+  std::shared_ptr<material_db> _materials;
 };
 }
 }

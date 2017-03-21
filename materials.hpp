@@ -35,52 +35,74 @@ public:
   material_factory(const material_factory& other) = default;
   material_factory &operator=(const material_factory &other) = default;
 
-  inline static
-  void create_uniform_material(material_map material,
-                              rgb_color scattered_fraction,
+  inline
+  texture_id create_uniform_scattered_fraction_texture(rgb_color scattered_fraction)
+  {
+    texture_id scattered_fraction_tex = _materials->allocate_texture(1,1);
+    rgba_color scattered = embed_rgb_in_rgba(scattered_fraction, 0.0f);
+    _materials->access_texture(scattered_fraction_tex).fill(scattered);
+
+    return scattered_fraction_tex;
+  }
+
+  inline
+  texture_id create_uniform_emission_texture(rgb_color emitted_light)
+  {
+    texture_id emitted_light_tex = _materials->allocate_texture(1,1);
+    rgba_color emitted = embed_rgb_in_rgba(emitted_light, 0.0f);
+    _materials->access_texture(emitted_light_tex).fill(emitted);
+
+    return emitted_light_tex;
+  }
+
+  inline
+  texture_id create_uniform_additional_properties_texture(scalar transmittance,
+                                                          scalar refraction_index,
+                                                          scalar roughness)
+  {
+    texture_id transmittance_refraction_roughness_tex = _materials->allocate_texture(1,1);
+    rgba_color additional_properties = {{transmittance, refraction_index, roughness, 0.0f}};
+    _materials->access_texture(transmittance_refraction_roughness_tex).fill(additional_properties);
+
+    return transmittance_refraction_roughness_tex;
+  }
+
+  inline
+  material_id create_background_material(texture_id background_texture)
+  {
+    return _materials->create_material(create_uniform_scattered_fraction_texture({{0.0f, 0.0f, 0.0f, 0.0f}}),
+                                       background_texture,
+                                       create_uniform_additional_properties_texture(0.0, 1.0, 1.0));
+  }
+
+  inline
+  material_id create_uniform_material(rgb_color scattered_fraction,
                               rgb_color emitted_light,
                               scalar transmittance,
                               scalar refraction_index,
                               scalar roughness)
   {
-    texture scattered_fraction_map = material.get_scattered_fraction();
-    texture emitted_light_map = material.get_emitted_light();
-    texture transmittance_refraction_roughness_map = 
-          material.get_transmittance_refraction_roughness();
 
-    for (std::size_t x = 0; x < scattered_fraction_map.get_width(); ++x)
-    {
-      for(std::size_t y = 0; y < scattered_fraction_map.get_height(); ++y)
-      {
-        rgba_color scattered = embed_rgb_in_rgba(scattered_fraction, 0.0f);
-        rgba_color emitted = embed_rgb_in_rgba(emitted_light, 0.0f);
-        rgba_color additional_properties = {{transmittance, refraction_index, roughness, 0.0f}};
-
-        scattered_fraction_map.write(scattered, x, y);
-        emitted_light_map.write(emitted, x, y);
-        transmittance_refraction_roughness_map.write(additional_properties, x, y);
-      }
-    }
+    return _materials->create_material(create_uniform_scattered_fraction_texture(scattered_fraction),
+                                create_uniform_emission_texture(emitted_light),
+                                create_uniform_additional_properties_texture(transmittance, refraction_index, roughness));
   }
 
-  inline static
-  void create_uniform_material(material_map material,
-                              rgb_color scattered_fraction,
+  inline
+  material_id create_uniform_material(rgb_color scattered_fraction,
                               scalar transmittance,
                               scalar refraction_index,
                               scalar roughness)
   {
-    create_uniform_material(material, 
-                            scattered_fraction, 
-                            {{0.0f, 0.0f, 0.0f, 0.0f}}, 
-                            transmittance, refraction_index, roughness);
+    return create_uniform_material(scattered_fraction,
+                                  {{0.0f, 0.0f, 0.0f, 0.0f}},
+                                   transmittance, refraction_index, roughness);
   }
 
-  inline static
-  void create_uniform_emissive_material(material_map material,
-                                        rgb_color emission)
+  inline
+  material_id create_uniform_emissive_material(rgb_color emission)
   {
-    create_uniform_material(material,
+    return create_uniform_material(
                             {{0.0f, 0.0f, 0.0f, 0.0f}},
                             embed_rgb_in_rgba(emission, 0.0f),
                             0.0,
@@ -88,39 +110,7 @@ public:
                             1.0);
   }
 
-  inline 
-  void create_uniform_material(material_map_id id,
-                              rgb_color scattered_fraction,
-                              rgb_color emitted_light,
-                              scalar transmittance,
-                              scalar refraction_index,
-                              scalar roughness)
-  {
-    create_uniform_material(_materials->get_material_map(id),
-                            scattered_fraction, emitted_light, 
-                            transmittance, refraction_index, roughness);
-  }
 
-  inline 
-  void create_uniform_material(material_map_id id,
-                              rgb_color scattered_fraction,
-                              scalar transmittance,
-                              scalar refraction_index,
-                              scalar roughness)
-  {
-    create_uniform_material(_materials->get_material_map(id),
-                            scattered_fraction, 
-                            transmittance, refraction_index, roughness);
-  }
-
-
- inline
- void create_uniform_emissive_material(material_map_id id,
-                                        rgb_color emission)
-  {
-    create_uniform_emissive_material(_materials->get_material_map(id),
-                                     emission);
-  }
 private:
   device_object::material_db *_materials;
 };

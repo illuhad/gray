@@ -26,94 +26,56 @@
 #include "image.hpp"
 #include "materials.hpp"
 #include "realtime_renderer.hpp"
+#include "scene.hpp"
 
 std::shared_ptr<gray::device_object::scene>
 setup_scene(const qcl::device_context_ptr& ctx)
 {
   gray::image background{"skymap.hdr"};
 
+  auto materials = std::make_shared<gray::device_object::material_db>(ctx);
+
   auto scene_ptr = std::make_shared<gray::device_object::scene>(
-      ctx, background.get_width(), background.get_height());
+      ctx, materials, background.to_texture(*materials));
 
   gray::material_factory material_fac{&(scene_ptr->get_materials())};
-  material_fac.create_uniform_emissive_material(
-      scene_ptr->access_background_map(), {{0.0f, 0.0f, 0.0f}});
-  gray::texture background_emissive_texture =
-      scene_ptr->access_background_map().get_emitted_light();
-  background.write_texture(background_emissive_texture);
 
-  // Create materials
-  auto material1 = scene_ptr->get_materials().allocate_material_map(1, 1);
-  auto material2 = scene_ptr->get_materials().allocate_material_map(1, 1);
-  auto diffuse = scene_ptr->get_materials().allocate_material_map(1, 1);
-  auto material4 = scene_ptr->get_materials().allocate_material_map(1, 1);
-  auto material5 = scene_ptr->get_materials().allocate_material_map(512, 512);
-  auto mirror_material = scene_ptr->get_materials().allocate_material_map(1, 1);
-  auto emissive_material =
-      scene_ptr->get_materials().allocate_material_map(1, 1);
-  auto medium_material = scene_ptr->get_materials().allocate_material_map(1, 1);
+  scene_ptr->add_sphere({{0.0, -0.4f, 0.1f}}, {{0.0, 0.0, 1.0}},
+                        {{1.0, 0.0, 0.0}}, 1.1f,
+                        material_fac.create_uniform_material(
+                            {{0.9f, 1.0f, 1.0f}}, 1.0f, 1.6f, 1.e-5f));
 
-  material_fac.create_uniform_material(mirror_material, {{0.9f, 0.76f, 0.8f}},
-                                       0.0f, 1.0f, 1.e-5f);
+  gray::texture_id inner_sphere_trs_texture =
+      materials->allocate_texture(512, 512);
+  gray::texture_accessor inner_sphere_trs_accessor =
+      materials->access_texture(inner_sphere_trs_texture);
 
-  material_fac.create_uniform_material(medium_material, {{1.0f, 1.0f, 1.0f}},
-                                       1.0f, 1.0f, 1.e-5f);
-
-  material_fac.create_uniform_emissive_material(emissive_material,
-                                                {{1.2f, 1.2f, 1.2f}});
-
-  material_fac.create_uniform_material(material1, {{0.9f, 1.0f, 1.0f}}, 1.0f,
-                                       1.6f, 1.e-5f);
-
-  material_fac.create_uniform_material(material2, {{0.2f, 0.4f, 0.2f}}, 0.0f,
-                                       1.0f, 1.0f);
-
-  material_fac.create_uniform_material(diffuse, {{0.8f, 0.8f, 0.8f}}, 0.0f,
-                                       1.0f, 0.8f);
-
-  material_fac.create_uniform_material(material4, {{0.5f, 0.6f, 0.9f}},
-                                       {{0.1f, 0.3f, 1.4f}}, 0.0f, 1.0f, 1.0f);
-
-  material_fac.create_uniform_material(material5, {{0.5f, 0.8f, 0.14f}},
-                                       //{{0.5f, 0.8f, 0.14f}},
-                                       0.0f, 1.0f, 0.8f);
-
-  gray::texture material5_trs = scene_ptr->get_materials()
-                                    .get_material_map(material5)
-                                    .get_transmittance_refraction_roughness();
-  gray::texture material5_scattered = scene_ptr->get_materials()
-                                          .get_material_map(material5)
-                                          .get_scattered_fraction();
-
-  for (std::size_t x = 0; x < material5_trs.get_width(); ++x)
-    for (std::size_t y = 0; y < material5_trs.get_height(); ++y)
+  for (std::size_t x = 0; x < inner_sphere_trs_accessor.get_width(); ++x)
+  {
+    for (std::size_t y = 0; y < inner_sphere_trs_accessor.get_height(); ++y)
     {
       gray::scalar y_normalized =
           static_cast<gray::scalar>(y) /
-          static_cast<gray::scalar>(material5_trs.get_height());
+          static_cast<gray::scalar>(inner_sphere_trs_accessor.get_height());
 
-      auto val = material5_trs.read(x, y);
+      auto val = inner_sphere_trs_accessor.read(x, y);
       val.s[2] = std::sin(y_normalized * 8 * 2 * 3.145f) * 0.1f + 0.1f;
 
-      material5_trs.write(val, x, y);
-
-      val = material5_scattered.read(x, y);
-      // val.s[0] = 0.5f * std::cos(10 * M_PI * x_normalized) + 0.5f;
-      material5_scattered.write(val, x, y);
+      inner_sphere_trs_accessor.write(val, x, y);
     }
+  }
+
+  gray::material_id inner_sphere_material = materials->create_material(
+      material_fac.create_uniform_scattered_fraction_texture(
+          {{0.5f, 0.8f, 0.14f}}),
+      material_fac.create_uniform_emission_texture({{0.0f, 0.0f, 0.0f}}),
+      inner_sphere_trs_texture);
 
   scene_ptr->add_sphere({{0.0, -0.4f, 0.1f}}, {{0.0, 0.0, 1.0}},
-                        {{1.0, 0.0, 0.0}}, 1.1f, material1);
-  /*scene_ptr->add_sphere({{1.0, 1.5, 61.0}},
-                        {{0.0, 1.0, 0.0}},
-                        {{1.0, 0.0, 0.0}},
-                        55.0, material4);*/
-  scene_ptr->add_sphere({{0.0, -0.4f, 0.1f}}, {{0.0, 0.0, 1.0}},
-                        {{1.0, 0.0, 0.0}}, 0.3f, material5);
-  /*scene_ptr->add_sphere({{0.0, -0.4, 0.1}},
-                        {{0.0, 0.0, 1.0}},
-                        {{1.0, 0.0, 0.0}},
-                        0.8, medium_material); */
+                        {{1.0, 0.0, 0.0}}, 0.3f, inner_sphere_material);
+
+  gray::material_id diffuse = material_fac.create_uniform_material(
+      {{0.8f, 0.8f, 0.8f}}, 0.0f, 1.0f, 0.8f);
 
   scene_ptr->add_sphere({{3.0, 1.0, -3.0}}, {{0.0, 0.0, 1.0}},
                         {{1.0, 0.0, 0.0}}, 3.0, diffuse);
@@ -121,23 +83,7 @@ setup_scene(const qcl::device_context_ptr& ctx)
                         {{1.0, 0.0, 0.0}}, 3.0, diffuse);
 
   scene_ptr->add_plane({{0.0, 0.0, -1.0}}, {{0.0, 0.0, 1.0}}, diffuse);
-  /*
-    scene_ptr->add_disk({{4.0, 0.0, -1.0}},
-                         gray::math::normalize({{-1.0, 0.0, 1}}), 20.0,
-                         mirror_material);
-    scene_ptr->add_disk({{-4.0, 0.0, -1.0}},
-                        gray::math::normalize({{1.0, 0.0, 1}}), 20.0,
-                        mirror_material);
-    scene_ptr->add_disk({{0.0, 7.0, 0.0}},
-                        {{0.0, 1.0, 0.0}}, 20.0,
-                        mirror_material);
-    scene_ptr->add_disk({{0.0, -15.0, 0.0}},
-                        {{0.0, 1.0, 0.0}}, 20.0,
-                        mirror_material);
 
-    scene_ptr->add_disk({{0.0, 6.0, 3.0}},
-                        gray::math::normalize({{0.0, -6, -3}}), 0.5,
-                        emissive_material);    */
   scene_ptr->transfer_data();
 
   return scene_ptr;
@@ -170,32 +116,81 @@ class gray_app
 {
 public:
   gray_app(int argc, char** argv)
+      : _x_resolution{1280}, _y_resolution{1024}, _rays_per_pixel{100},
+        _argc{argc}, _argv{argv}
   {
     image::initialize(argc, argv);
+  }
+
+  void run()
+  {
+    _x_resolution = 1280;
+    _y_resolution = 1024;
+    _rays_per_pixel = 100;
 
     bool offline = false;
     bool disable_gl_sharing = false;
 
     std::vector<std::string> platform_preferences = {"NVIDIA", "AMD", "Intel"};
 
-    if (argc > 1)
+    if (_argc > 1)
     {
-      for (std::size_t i = 1; i < static_cast<std::size_t>(argc); ++i)
+      for (std::size_t i = 1; i < static_cast<std::size_t>(_argc); ++i)
       {
-        if (argv[i] == std::string{"--offline"})
-          offline = true;
-        else if (argv[i] == std::string{"--disable_gl_sharing"})
-          disable_gl_sharing = true;
-        else if (argv[i] == std::string{"--prefer_platform"})
+        if (_argv[i] == std::string{"--offline"})
         {
-          if (i == static_cast<std::size_t>(argc) - 1)
+          offline = true;
+        }
+        else if (_argv[i] == std::string{"--disable_gl_sharing"})
+          disable_gl_sharing = true;
+        else if (_argv[i] == std::string{"--prefer_platform"})
+        {
+          if (i == static_cast<std::size_t>(_argc) - 1)
             throw std::invalid_argument(
                 "Invalid argument: Expected platform keyword.");
 
-          std::string keyword = argv[i + 1];
+          std::string keyword = _argv[i + 1];
           platform_preferences.insert(platform_preferences.begin(), keyword);
 
           ++i;
+        }
+        else if (_argv[i] == std::string{"--resolution"})
+        {
+          if (i == static_cast<std::size_t>(_argc) - 1)
+            throw std::invalid_argument(
+                "Resolution not given after --resolution argument.");
+
+          std::string resolution = _argv[i + 1];
+
+          std::size_t resolution_delimiter = resolution.find("x");
+
+          if (resolution_delimiter == std::string::npos)
+            throw std::invalid_argument("Given resolution is invalid (expected "
+                                        "format: x_resxy_res, e.g. 1024x1024)");
+
+          std::string x_res = resolution.substr(0, resolution_delimiter);
+          std::string y_res =
+              resolution.substr(resolution_delimiter + 1, std::string::npos);
+
+          this->_x_resolution = std::stoull(x_res);
+          this->_y_resolution = std::stoull(y_res);
+
+          ++i;
+        }
+        else if (_argv[i] == std::string{"--rays_per_pixel"})
+        {
+          if (i == static_cast<std::size_t>(_argc) - 1)
+            throw std::invalid_argument("Number of rays per pixel not given "
+                                        "after rays_per_pixel argument");
+
+          _rays_per_pixel = std::stoull(_argv[i + 1]);
+
+          ++i;
+        }
+        else
+        {
+          std::cout << "Invalid argument: " << _argv[i] << std::endl;
+          return;
         }
       }
     }
@@ -209,7 +204,8 @@ public:
       // Initialise interoperability environment
       cl_gl::init_environment();
       // Initialise render window
-      gl_renderer::instance().init("gray", 1920, 1080, argc, argv);
+      gl_renderer::instance().init("gray", _x_resolution, _y_resolution, _argc,
+                                   _argv);
       if (disable_gl_sharing)
         launch_realtime_renderer(platform_preferences, false);
       else
@@ -275,6 +271,7 @@ private:
   void launch_offline_renderer(
       const std::vector<std::string>& platform_preferences) const
   {
+
     const cl::Platform& selected_platform =
         _environment.get_platform_by_preference(platform_preferences);
     qcl::global_context_ptr global_ctx =
@@ -289,6 +286,31 @@ private:
 
     auto scene = setup_scene(ctx);
     auto camera = setup_camera(ctx);
+
+    gray::frame_renderer renderer{ctx, "trace_paths", "hdr_color_compression",
+                                  _x_resolution, _y_resolution};
+
+    cl::Image2D pixels{ctx->get_context(), CL_MEM_READ_WRITE,
+                       cl::ImageFormat{CL_RGBA, CL_UNORM_INT8}, _x_resolution,
+                       _y_resolution};
+
+    std::cout << "Started render..." << std::endl;
+
+    // Each rendering chunk should take 2s
+    renderer.set_target_rendering_time(2.0);
+    while (renderer.get_total_rays_per_pixel() < _rays_per_pixel)
+    {
+      std::cout << "paths traced per pixel: "
+                << renderer.get_total_rays_per_pixel() << std::endl;
+      renderer.render(pixels, *scene, *camera);
+    }
+
+    ctx->get_command_queue().finish();
+
+    std::cout << "Done." << std::endl;
+
+    gray::image::save_png("gray_render.png", ctx, pixels, _x_resolution,
+                          _y_resolution);
   }
 
   bool
@@ -341,12 +363,18 @@ private:
   }
 
   qcl::environment _environment;
+  std::size_t _x_resolution;
+  std::size_t _y_resolution;
+  std::size_t _rays_per_pixel;
+  int _argc;
+  char** _argv;
 };
 }
 
 int main(int argc, char* argv[])
 {
   gray::gray_app app{argc, argv};
+  app.run();
 
   return 0;
 }

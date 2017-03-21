@@ -23,7 +23,13 @@
 #define HOST
 #endif
 
-#ifndef HOST
+// OPENCL_CODEASSISTANCE can be defined in your IDE parsing macros
+// to improve OpenCL code assistance. It should never be active during
+// compilation!
+#ifdef OPENCL_CODEASSISTANCE
+#include <CL/cl2.hpp>
+#endif
+#if !defined(HOST) || defined(OPENCL_CODEASSISTANCE)
 typedef float scalar;
 typedef float3 vector3;
 #else
@@ -109,7 +115,7 @@ vector3 operator*(const vector3& b, scalar s)
 
 namespace math {
 
-inline
+inline static
 scalar dot(const vector3& a, const vector3& b)
 {
   scalar result = 0.0f;
@@ -119,13 +125,13 @@ scalar dot(const vector3& a, const vector3& b)
   return result;
 }
 
-inline
+inline static
 vector3 normalize(const vector3& v)
 {
   return v * (1.f / std::sqrt(dot(v, v)));
 }
 
-inline
+inline static
 vector3 cross(const vector3& a, const vector3& b)
 {
   return VECTOR3(a.s[1] * b.s[2] - a.s[2] * b.s[1],
@@ -144,6 +150,7 @@ typedef struct
   vector3 row2;
 } matrix3x3;
 
+static
 void matrix_create_identity(matrix3x3* m)
 {
   m->row0 = VECTOR3(1, 0, 0);
@@ -151,6 +158,7 @@ void matrix_create_identity(matrix3x3* m)
   m->row2 = VECTOR3(0, 0, 1);
 }
 
+static
 void matrix_create_rotation_matrix(matrix3x3* m, vector3 axis, scalar alpha)
 {
   scalar a1 = VECTOR3_X(axis);
@@ -182,6 +190,7 @@ void matrix_create_rotation_matrix(matrix3x3* m, vector3 axis, scalar alpha)
   VECTOR3_Z(m->row2) = a3*a3*flipped_cos_alpha + cos_alpha;
 }
 
+static
 vector3 matrix_vector_mult(const matrix3x3* m, vector3 v)
 {
   vector3 result;
@@ -191,6 +200,7 @@ vector3 matrix_vector_mult(const matrix3x3* m, vector3 v)
   return result;
 }
 
+static
 scalar det(const matrix3x3* m)
 {
   scalar a00 = VECTOR3_X(m->row0);
@@ -207,6 +217,7 @@ scalar det(const matrix3x3* m)
        - a02*a11*a20 - a01*a10*a22 - a00*a12*a21;
 }
 
+static
 void matrix_create_inverse(matrix3x3* inv, const matrix3x3* A)
 {
   scalar inv_detA = 1.f / det(A);

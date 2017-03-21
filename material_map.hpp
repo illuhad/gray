@@ -23,7 +23,7 @@
 #include <cassert>
 #include "qcl.hpp"
 #include "types.hpp"
-
+#include "common.cl_hpp"
 
 namespace gray {
 
@@ -31,15 +31,17 @@ namespace device_object {
 class material_db;
 }
 
-class texture
+class texture_accessor
 {
 public:
-  texture(float4* buffer, std::size_t width, std::size_t height)
-  : _data{buffer}, _width{width}, _height{height}
+  texture_accessor(float4* buffer, cl_int width, cl_int height)
+    : _data{buffer},
+      _width{static_cast<std::size_t>(width)},
+      _height{static_cast<std::size_t>(height)}
   {}
 
-  texture(const texture &other) = default;
-  texture &operator=(const texture &other) = default;
+  texture_accessor(const texture_accessor &other) = default;
+  texture_accessor &operator=(const texture_accessor &other) = default;
 
   const float4& read(std::size_t x, std::size_t y) const
   {
@@ -65,6 +67,13 @@ public:
     return _height;
   }
 
+  inline void fill(float4 fill_color)
+  {
+    for(std::size_t i = 0; i < _width; ++i)
+      for(std::size_t j = 0; j < _height; ++j)
+        write(fill_color, i, j);
+  }
+
 private:
   device_object::material_db *_mat_db;
 
@@ -76,51 +85,48 @@ private:
 class material_map
 {
 public:
-  material_map(float4* scattered_fraction,
-              float4* emitted_light,
-              float4* transmittance_refraction_roughness,
-              std::size_t width, std::size_t height)
-  : _scattered_fraction{scattered_fraction, width, height},
-    _emitted_light{emitted_light, width, height},
-    _transmittance_refraction_roughness{transmittance_refraction_roughness, width, height}
+  material_map(const texture_accessor& scattered_fraction,
+              const texture_accessor& emitted_light,
+              const texture_accessor& transmittance_refraction_roughness)
+    : _scattered_fraction{scattered_fraction},
+      _emitted_light{emitted_light},
+      _transmittance_refraction_roughness{transmittance_refraction_roughness}
     {}
   
-  texture get_scattered_fraction()
+  texture_accessor get_scattered_fraction()
   {
     return _scattered_fraction;
   }
 
-  const texture get_scattered_fraction() const
+  const texture_accessor get_scattered_fraction() const
   {
     return _scattered_fraction;
   }
 
-  texture get_emitted_light()
+  texture_accessor get_emitted_light()
   {
     return _emitted_light;
   }
 
-  const texture get_emitted_light() const
+  const texture_accessor get_emitted_light() const
   {
     return _emitted_light;
   }
 
-  texture get_transmittance_refraction_roughness()
+  texture_accessor get_transmittance_refraction_roughness()
   {
     return _transmittance_refraction_roughness;
   }
-  const texture get_transmittance_refraction_roughness() const
+  const texture_accessor get_transmittance_refraction_roughness() const
   {
     return _transmittance_refraction_roughness;
   }
 
 private:
-  texture _scattered_fraction;
-  texture _emitted_light;
-  texture _transmittance_refraction_roughness;
+  texture_accessor _scattered_fraction;
+  texture_accessor _emitted_light;
+  texture_accessor _transmittance_refraction_roughness;
 };
-
-using material_map_id = portable_int;
 
 namespace device_object {
 
@@ -134,13 +140,10 @@ public:
 
   /// Allocate a new material map - prepares a fresh material_db if \c purge_host_memory()
   /// has been called. 
-  material_map_id allocate_material_map(std::size_t width, std::size_t height)
+  texture_id allocate_texture(std::size_t width, std::size_t height)
   {
     std::size_t num_texels = width * height;
-    _host_scattered_fraction.resize(_host_scattered_fraction.size() + num_texels);
-    _host_emitted_light.resize(_host_emitted_light.size() + num_texels);
-    _host_transmittance_refraction_roughness.resize(
-                _host_transmittance_refraction_roughness.size() + num_texels);
+    _host_data_buffer.resize(_host_data_buffer.size() + num_texels);
 
     _host_widths.push_back(static_cast<cl_int>(width));
     _host_heights.push_back(static_cast<cl_int>(height));
@@ -152,41 +155,56 @@ public:
       _host_offsets.push_back(num_texels);
     }
 
-    _num_material_maps = static_cast<int>(_host_offsets.size() - 1);
+    _num_textures = static_cast<int>(_host_offsets.size() - 1);
 
-    return _num_material_maps - 1;
+    return _num_textures - 1;
   }
 
-  material_map get_material_map(material_map_id index)
+  material_map get_material_map(material_id index)
   {
     assert(static_cast<std::size_t>(index) < _host_offsets.size());
 
+    material_db_entry db_entry = this->_host_materials[index];
     cl_ulong offset = static_cast<cl_ulong>(_host_offsets[index]);
-    return material_map(_host_scattered_fraction.data() + offset, 
-                        _host_emitted_light.data() + offset,
-                        _host_transmittance_refraction_roughness.data() + offset,
-                        static_cast<std::size_t>(_host_widths[index]),
-                        static_cast<std::size_t>(_host_heights[index]));
+
+    return material_map(access_texture(db_entry.scattered_fraction_texture_id),
+                        access_texture(db_entry.emitted_ligt_texture_id),
+                        access_texture(db_entry.transmittance_refraction_roughness_texture_id));
   }
 
-  cl_int get_num_material_maps() const
+  material_id create_material(texture_id scattered_fraction_texture,
+                              texture_id emitted_light_texture,
+                              texture_id transmittance_refraction_roughness_texture)
   {
-    return static_cast<cl_int>(_num_material_maps);
+    material_db_entry material;
+
+    material.scattered_fraction_texture_id = scattered_fraction_texture;
+    material.emitted_ligt_texture_id = emitted_light_texture;
+    material.transmittance_refraction_roughness_texture_id = transmittance_refraction_roughness_texture;
+
+    _host_materials.push_back(material);
+
+    return static_cast<material_id>(_host_materials.size() - 1);
   }
 
-  const cl::Buffer& get_scattered_fraction() const
+  cl_int get_num_textures() const
   {
-    return _scattered_fraction;
+    return static_cast<cl_int>(_num_textures);
+  }
+
+  cl_int get_num_materials() const
+  {
+    return static_cast<cl_int>(_host_materials.size());
+  }
+
+  const cl::Buffer& get_texture_data_buffer() const
+  {
+    return _data_buffer;
   }
   
-  const cl::Buffer& get_emitted_light() const
+  const cl::Buffer& get_materials() const
   {
-    return _emitted_light;
-  }
-
-  const cl::Buffer& get_transmittance_refraction_roughness() const
-  {
-    return _transmittance_refraction_roughness;
+    return _materials;
   }
 
   const cl::Buffer& get_widths() const
@@ -206,20 +224,17 @@ public:
 
   void transfer_data()
   {
-    if (this->_num_material_maps == 0)
+    if (this->_num_textures == 0)
       return;
 
     // Resize buffers and perform full data transfer
     
-    _ctx->create_input_buffer<float4>(_scattered_fraction,
-                                      _host_scattered_fraction.size(),
-                                      _host_scattered_fraction.data());                                 
-    _ctx->create_input_buffer<float4>(_emitted_light,
-                                      _host_emitted_light.size(),
-                                      _host_emitted_light.data());
-    _ctx->create_input_buffer<float4>(_transmittance_refraction_roughness,
-                                      _host_transmittance_refraction_roughness.size(),
-                                      _host_transmittance_refraction_roughness.data());
+    _ctx->create_input_buffer<float4>(_data_buffer,
+                                      _host_data_buffer.size(),
+                                      _host_data_buffer.data());
+    _ctx->create_input_buffer<material_db_entry>(_materials,
+                                                 _host_materials.size(),
+                                                 _host_materials.data());
     _ctx->create_input_buffer<cl_int>(_width,
                                       _host_widths.size(),
                                       _host_widths.data());
@@ -236,29 +251,35 @@ public:
   /// of host memory.
   void purge_host_memory()
   {
-    _host_scattered_fraction.clear();
-    _host_emitted_light.clear();
-    _host_transmittance_refraction_roughness.clear();
+    _host_data_buffer.clear();
     _host_heights.clear();
     _host_widths.clear();
     _host_offsets.clear();
+    _host_materials.clear();
+  }
+
+
+  texture_accessor access_texture(texture_id tex)
+  {
+    cl_ulong offset = _host_offsets[static_cast<std::size_t>(tex)];
+    cl_int width = _host_widths[static_cast<std::size_t>(tex)];
+    cl_int height = _host_heights[static_cast<std::size_t>(tex)];
+    return texture_accessor{_host_data_buffer.data() + offset, width, height};
   }
 
 private:
 
-  std::vector<float4> _host_scattered_fraction;
-  std::vector<float4> _host_emitted_light;
-  std::vector<float4> _host_transmittance_refraction_roughness;
+  std::vector<float4> _host_data_buffer;
+  std::vector<material_db_entry> _host_materials;
   std::vector<cl_int> _host_widths;
   std::vector<cl_int> _host_heights;
   std::vector<cl_ulong> _host_offsets;
 
-  cl::Buffer _scattered_fraction;
-  cl::Buffer _emitted_light;
-  cl::Buffer _transmittance_refraction_roughness;
+  cl::Buffer _data_buffer;
+  cl::Buffer _materials;
   cl::Buffer _width;
   cl::Buffer _height;
-  int _num_material_maps;
+  int _num_textures;
   cl::Buffer _offsets;
 
   qcl::const_device_context_ptr _ctx;

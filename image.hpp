@@ -17,18 +17,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef IMAGE_HPP
+#define IMAGE_HPP
+
 #include <string>
 #include <vector>
 
 #include <Magick++.h>
 
+#include "material_map.hpp"
+#include "qcl.hpp"
+
+namespace cl {
+class Image2D;
+}
+
 namespace gray {
 
-void save_png(const std::string& filename,
-              const std::vector<unsigned char>& pixels, std::size_t npx_x,
-              std::size_t npx_y);
-
-class texture;
+class texture_accessor;
 
 class image
 {
@@ -40,16 +46,32 @@ public:
 
   void load(const std::string& image_file_name);
 
-  void write_texture(texture& tex) const;
+  texture_id to_texture(device_object::material_db& materials) const;
 
   inline std::size_t get_width() const { return _width; }
 
   inline std::size_t get_height() const { return _height; }
 
+  static void save_png(const std::string& filename,
+                       const std::vector<unsigned char>& pixels,
+                       std::size_t npx_x, std::size_t npx_y);
+
+  static void save_png(const std::string& filename,
+                       const qcl::device_context_ptr& ctx,
+                       const cl::Image2D& img, std::size_t width,
+                       std::size_t height);
+
 private:
+  static void save_png(const std::string& filename,
+                       const std::vector<unsigned char>& pixels,
+                       std::size_t npx_x, std::size_t npx_y,
+                       unsigned num_channels_per_pix, bool inverse_y_axis);
+
   std::size_t _width;
   std::size_t _height;
 
   Magick::Image _img;
 };
 }
+
+#endif

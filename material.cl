@@ -22,10 +22,13 @@
 #include "random.cl"
 #include "objects.cl"
 
-float4 array2d_extract_interpolated(__global const float4* ctx, 
-                                    int width, int height, 
+float4 array2d_extract_interpolated(texture data,
                                     float2 coord)
 {
+  int width = data.width;
+  int height = data.height;
+
+
   int max_x = width - 1;
   int max_y = height - 1;
 
@@ -40,10 +43,10 @@ float4 array2d_extract_interpolated(__global const float4* ctx,
   int xp1 = clamp(x + 1, 0, max_x);
   int yp1 = clamp(y + 1, 0, max_y);
 
-  float4 x0y0 = ctx[x   * height + y  ];
-  float4 x0y1 = ctx[x   * height + yp1];
-  float4 x1y0 = ctx[xp1 * height + y  ];
-  float4 x1y1 = ctx[xp1 * height + yp1];
+  float4 x0y0 = data.data[x   * height + y  ];
+  float4 x0y1 = data.data[x   * height + yp1];
+  float4 x1y0 = data.data[xp1 * height + y  ];
+  float4 x1y1 = data.data[xp1 * height + yp1];
 
   // Bilinear Interpolation
   float f_x = abs_coord.x - (float)x;
@@ -65,15 +68,12 @@ material material_map_get_material(const material_map* ctx,
   material mat;
   float4 scattered_fraction_data =
       array2d_extract_interpolated(ctx->scattered_fraction,
-                                   ctx->width, ctx->height,
                                    clamped_coord);
   float4 emitted_light_data =
       array2d_extract_interpolated(ctx->emitted_light,
-                                   ctx->width, ctx->height,
                                    clamped_coord);
   float4 transmittance_refraction_spec_data =
       array2d_extract_interpolated(ctx->transmittance_refraction_roughness,
-                                   ctx->width, ctx->height,
                                    clamped_coord);
 
   mat.scattered_fraction = scattered_fraction_data.xyz;
@@ -85,17 +85,28 @@ material material_map_get_material(const material_map* ctx,
   return mat;
 }
 
+texture material_db_get_texture(const material_db* ctx, texture_id tex)
+{
+  texture result;
+
+  unsigned long long offset = ctx->offsets[tex];
+  result.data = ctx->data_buffer + offset;
+  result.width =  ctx->width[tex];
+  result.height = ctx->height[tex];
+
+  return result;
+}
 
 material_map material_db_get_material_map(const material_db* ctx, int map_id)
 {
-  unsigned long long offset = ctx->offsets[map_id];
   material_map mmap;
-  mmap.scattered_fraction = ctx->scattered_fraction + offset;
-  mmap.emitted_light = ctx->emitted_light + offset;
-  mmap.transmittance_refraction_roughness = ctx->transmittance_refraction_roughness + offset;
 
-  mmap.width  = ctx->width[map_id];
-  mmap.height = ctx->height[map_id];
+  material_db_entry entry = ctx->materials[map_id];
+
+  mmap.scattered_fraction = material_db_get_texture(ctx, entry.scattered_fraction_texture_id);
+  mmap.emitted_light = material_db_get_texture(ctx, entry.emitted_ligt_texture_id);
+  mmap.transmittance_refraction_roughness =
+      material_db_get_texture(ctx, entry.transmittance_refraction_roughness_texture_id);
 
   return mmap;
 }

@@ -27,16 +27,40 @@
 #define HOST
 #endif
 
-
-#ifdef HOST
-namespace gray{
-namespace device_object {
-#endif
-
+#if !defined(HOST) || defined(OPENCL_CODEASSISTANCE)
 // portable_int will be defined in types.hpp for the host
-#ifndef HOST
 typedef int portable_int;
+
 #endif
+
+// Define macro OPENCL_CODEASSISTANCE in your IDE code assistance macros,
+// for improved OpenCL code assistance
+#ifdef OPENCL_CODEASSISTANCE
+// This helps code assistance get along with OpenCL code ;)
+#define __global
+#define __local
+#define __constant
+#define __kernel
+#define __read_only
+#define __write_only
+#endif
+
+
+#if defined(HOST) && !defined(OPENCL_CODEASSISTANCE)
+namespace gray{
+
+typedef portable_int object_id;
+typedef portable_int material_id;
+typedef portable_int texture_id;
+
+namespace device_object {
+#else
+
+typedef portable_int object_id;
+typedef portable_int material_id;
+typedef portable_int texture_id;
+#endif
+
 
 // The number of actual, geometric objects
 #define NUM_OBJECT_TYPES 3
@@ -56,7 +80,13 @@ typedef portable_int object_type;
 #define OBJECT_TYPE_PLANE 4
 #define OBJECT_TYPE_DISK_PLANE 5
 
-typedef portable_int object_id;
+
+typedef struct
+{
+  texture_id scattered_fraction_texture_id;
+  texture_id emitted_ligt_texture_id;
+  texture_id transmittance_refraction_roughness_texture_id;
+} material_db_entry;
 
 typedef struct
 {
@@ -95,8 +125,6 @@ typedef struct
 } sphere_geometry;
 
 
-
-#define BACKGROUND_MATERIAL 0
 #define BACKGROUND_ID (-1)
 #define MEDIUM_ID (-2)
 
@@ -118,7 +146,7 @@ DEFINE_OBJECT_TYPE(plane_geometry);
 DEFINE_OBJECT_TYPE(disk_geometry);
 DEFINE_OBJECT_TYPE(sphere_geometry);
 
-#ifdef HOST
+#if defined(HOST) && !defined(OPENCL_CODEASSISTANCE)
 } // gray
 } // device_object
 #endif

@@ -19,15 +19,19 @@
 
 #include "cl_gl.hpp"
 #include "gl_renderer.hpp"
-#include <GL/gl.h>
+
+// Must come before gl.h
 #include <GL/glew.h>
+
+#include <GL/gl.h>
+
 #include <cassert>
 #include <iostream>
 
 void cl_gl::init_environment() { glewInit(); }
 
 cl_gl::cl_gl(const gl_renderer* r, const cl::Context& context, bool gl_sharing)
-    : _renderer(r), _context(context), _gl_sharing(gl_sharing)
+    : _renderer(r), _gl_sharing(gl_sharing), _context(context)
 {
   init();
 }

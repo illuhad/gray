@@ -38,33 +38,30 @@ typedef struct
 typedef struct
 {
   //xyz = RGB
-  __global float4* scattered_fraction;
-  //xyz = RGB
-  __global float4* emitted_light;
-  //xyz = Transmittance, Refraction index, roughness
-  __global float4* transmittance_refraction_roughness;
-
+  __global float4* data;
   int width;
   int height;
+} texture;
+
+typedef struct
+{
+  texture scattered_fraction;
+  texture emitted_light;
+  //xyz = Transmittance, Refraction index, roughness
+  texture transmittance_refraction_roughness;
 } material_map;
 
 typedef struct
 {
-  int scattered_fraction_texture_id;
-  int emitted_ligt_texture_id;
-  int transmittance_refraction_roughness_texture_id;
-} material_db_entry;
-
-typedef struct
-{
-  __global float4* scattered_fraction;
-  __global float4* emitted_light;
-  __global float4* transmittance_refraction_roughness;
+  __global float4* data_buffer;
 
   __global int* width;
   __global int* height;
 
-  int num_material_maps;
+  int num_materials;
+  int num_textures;
+
+  __global material_db_entry* materials;
 
   __global unsigned long* offsets;
 } material_db;

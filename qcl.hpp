@@ -30,6 +30,7 @@
 #elif __APPLE__
 // What is the correct header?
 #else
+#include <GL/glew.h>
 #include <GL/glx.h>
 #endif
 
@@ -69,6 +70,62 @@ using kernel_ptr = std::shared_ptr<cl::Kernel>;
 using buffer_ptr = std::shared_ptr<cl::Buffer>;
 
 using command_queue_id = std::size_t;
+
+/// This class simplifies passing arguments to kernels
+/// by counting the argument index automatically.
+class kernel_argument_list
+{
+public:
+  /// Construct object
+  /// \param kernel The kernel for which the arguments shall
+  /// be set
+  explicit kernel_argument_list(const kernel_ptr& kernel)
+    : _kernel(kernel), _num_arguments()
+  {
+    assert(kernel != nullptr);
+  }
+
+  /// Pass argument to the kernel.
+  /// \return The OpenCL error code
+  /// \param data The kernel argument
+  template<class T>
+  cl_int push(const T& data)
+  {
+    cl_int err = _kernel->setArg(_num_arguments, data);
+
+    ++_num_arguments;
+    return err;
+  }
+
+  /// Pass argument to the kernel.
+  /// \return The OpenCL error code
+  /// \param data The kernel argument
+  /// \param size The size in bytes of the argument
+  cl_int push(const void* data, std::size_t size)
+  {
+    cl_int err = _kernel->setArg(_num_arguments, size, data);
+
+    ++_num_arguments;
+    return err;
+  }
+
+  /// \return The number of arguments that have been set
+  unsigned get_num_pushed_arguments() const noexcept
+  {
+    return _num_arguments;
+  }
+
+  /// Resets the argument counter, hence allowing to set
+  /// kernel arguments again.
+  void reset()
+  {
+    _num_arguments = 0;
+  }
+
+private:
+  kernel_ptr _kernel;
+  unsigned _num_arguments;
+};
 
 /// Represents the OpenCL context of a device. This class contains everything
 /// that is needed to execute OpenCL commands on a device. It stores one cl::Context,

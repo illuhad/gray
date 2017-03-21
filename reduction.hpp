@@ -60,9 +60,9 @@ public:
         get_required_num_work_items(image_height, _img_group_size2d);
 
    
-
-    _init_kernel->setArg(0, input);
-    _init_kernel->setArg(1, *_buffer);
+    qcl::kernel_argument_list init_kernel_arguments{_init_kernel};
+    init_kernel_arguments.push(input);
+    init_kernel_arguments.push(*_buffer);
 
     cl_int err;
 
@@ -74,8 +74,9 @@ public:
                                                    &(_wait_events[0]));
     qcl::check_cl_error(err, "Could not enqueue init kernel for reduction!");
 
-    _reduction_kernel->setArg(0, *_buffer);
-    _reduction_kernel->setArg(1, _group_size * sizeof(cl_float), nullptr);
+    qcl::kernel_argument_list reduction_kernel_args{_reduction_kernel};
+    reduction_kernel_args.push(*_buffer);
+    reduction_kernel_args.push(nullptr, _group_size * sizeof(cl_float));
 
     cl::Event event;
     err = _ctx->get_command_queue().enqueueNDRangeKernel(*_reduction_kernel,

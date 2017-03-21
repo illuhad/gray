@@ -198,15 +198,16 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                           int num_planes,
                           int num_disks,
                           float far_clipping_distance,
+                          material_id background_material,
                           
                           // Material Database
-                          __global float4 * scattered_fraction_maps,
-                          __global float4 *emitted_light_maps,
-                          __global float4 *transmittance_refraction_roughness_maps,
+                          __global float4 * texture_data_buffer,
                           __global int *widths,
                           __global int *heights,
                           __global unsigned long *offsets,
-                          int num_material_maps)
+                          __global material_db_entry* materials,
+                          int num_materials,
+                          int num_textures)
 {
   // Get resolution of render window
   int width = get_image_width(pixels);
@@ -228,16 +229,16 @@ __kernel void trace_paths(__write_only image2d_t pixels,
                spheres, num_spheres,
                planes, num_planes,
                disks, num_disks,
-               far_clipping_distance);
+               far_clipping_distance,
+               background_material);
 
-    s.materials.scattered_fraction = scattered_fraction_maps;
-    s.materials.emitted_light = emitted_light_maps;
-    s.materials.transmittance_refraction_roughness =
-        transmittance_refraction_roughness_maps;
-    s.materials.width = widths;
-    s.materials.height = heights;
+    s.materials.data_buffer = texture_data_buffer;
+    s.materials.width   = widths;
+    s.materials.height  = heights;
     s.materials.offsets = offsets;
-    s.materials.num_material_maps = num_material_maps;
+    s.materials.num_materials = num_materials;
+    s.materials.num_textures = num_textures;
+    s.materials.materials = materials;
 
     // Calculate focal distance if autofocus is enabled
     if(cam.camera_lens.focal_length <= 0.0f)

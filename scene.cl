@@ -42,6 +42,7 @@ typedef struct
   material_db materials;
   object_entry background_object;
 
+  material_id background_material;
 } scene;
 
 void scene_init(scene* ctx,
@@ -49,7 +50,8 @@ void scene_init(scene* ctx,
                 __global OBJECT_NAME(sphere_geometry)* spheres, int num_spheres,
                 __global OBJECT_NAME(plane_geometry)* planes, int num_planes,
                 __global OBJECT_NAME(disk_geometry)* disks, int num_disks,
-                scalar far_clipping_distance)
+                scalar far_clipping_distance,
+                material_id background_material)
 {
   ctx->objects = objects;
   ctx->num_objects = num_objects;
@@ -66,6 +68,7 @@ void scene_init(scene* ctx,
   ctx->background_object.type = OBJECT_TYPE_BACKGROUND;
   ctx->background_object.id = BACKGROUND_ID;
   ctx->background_object.local_id = 0;
+  ctx->background_material = background_material;
 
   ctx->far_clipping_distance = far_clipping_distance;
 }
@@ -192,7 +195,7 @@ void scene_get_nearest_intersection(const scene* ctx, const ray* r, path_vertex*
     uv_background_coordinates.y = v;
 
     hit_material = material_db_get_material(&(ctx->materials),
-                                            BACKGROUND_MATERIAL,
+                                            ctx->background_material,
                                             uv_background_coordinates);   
 
     vertex->material_to = hit_material;

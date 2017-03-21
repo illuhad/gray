@@ -61,6 +61,7 @@ public:
                                   max_running_average_init.data());
   }
 
+
   void set_target_fps(double fps)
   {
     _target_fps = fps;
@@ -127,11 +128,18 @@ public:
     return _ctx;
   }
 
+  std::size_t get_total_rays_per_pixel() const
+  {
+    return _total_num_rays;
+  }
+
   void skip_frame()
   {
     ++_frame_number;
   }
 
+  /// Render the current progress into \c pixels
+  /// \param pixels An OpenCL image with image_format = {CL_RGBA,CL_UNORM_INT8}.
   template<class Image_type>
   void render(const Image_type& pixels,
               const device_object::scene& s, 
@@ -150,29 +158,32 @@ public:
     cl_int err;
 
     //Call kernel
-    _kernel->setArg(0, *_buffer_a);
-    _kernel->setArg(1, *_buffer_b);
-    _kernel->setArg(2, static_cast<cl_int>(_total_num_rays));
-    _kernel->setArg(3, _random.get());
-    _kernel->setArg(4, sizeof(device_object::camera), &cam);
-    _kernel->setArg(5, _num_rays_ppx);
+    qcl::kernel_argument_list kernel_arguments(_kernel);
 
-    _kernel->setArg(6, s.get_objects());
-    _kernel->setArg(7, s.get_spheres());
-    _kernel->setArg(8, s.get_planes());
-    _kernel->setArg(9, s.get_disks());
-    _kernel->setArg(10, static_cast<cl_int>(s.get_num_spheres()));
-    _kernel->setArg(11, static_cast<cl_int>(s.get_num_planes()));
-    _kernel->setArg(12, static_cast<cl_int>(s.get_num_disks()));
-    _kernel->setArg(13, s.get_far_clipping_distance());
+    kernel_arguments.push(*_buffer_a);
+    kernel_arguments.push(*_buffer_b);
+    kernel_arguments.push(static_cast<cl_int>(_total_num_rays));
+    kernel_arguments.push(_random.get());
+    kernel_arguments.push(&cam, sizeof(device_object::camera));
+    kernel_arguments.push(_num_rays_ppx);
 
-    _kernel->setArg(14, s.get_materials().get_scattered_fraction());
-    _kernel->setArg(15, s.get_materials().get_emitted_light());
-    _kernel->setArg(16, s.get_materials().get_transmittance_refraction_roughness());
-    _kernel->setArg(17, s.get_materials().get_widths());
-    _kernel->setArg(18, s.get_materials().get_heights());
-    _kernel->setArg(19, s.get_materials().get_offsets());
-    _kernel->setArg(20, static_cast<cl_int>(s.get_materials().get_num_material_maps()));
+    kernel_arguments.push(s.get_objects());
+    kernel_arguments.push(s.get_spheres());
+    kernel_arguments.push(s.get_planes());
+    kernel_arguments.push(s.get_disks());
+    kernel_arguments.push(static_cast<cl_int>(s.get_num_spheres()));
+    kernel_arguments.push(static_cast<cl_int>(s.get_num_planes()));
+    kernel_arguments.push(static_cast<cl_int>(s.get_num_disks()));
+    kernel_arguments.push(s.get_far_clipping_distance());
+    kernel_arguments.push(s.get_background_material());
+
+    kernel_arguments.push(s.get_materials().get_texture_data_buffer());
+    kernel_arguments.push(s.get_materials().get_widths());
+    kernel_arguments.push(s.get_materials().get_heights());
+    kernel_arguments.push(s.get_materials().get_offsets());
+    kernel_arguments.push(s.get_materials().get_materials());
+    kernel_arguments.push(static_cast<cl_int>(s.get_materials().get_num_materials()));
+    kernel_arguments.push(static_cast<cl_int>(s.get_materials().get_num_textures()));
 
     assert(_kernel_run_event.size() == 1);
 
@@ -189,12 +200,13 @@ public:
     // color range compression during post processing.
     _image_max_reduction.run_reduction(*_buffer_a);
 
-    _post_processing_kernel->setArg(0, pixels);
-    _post_processing_kernel->setArg(1, *_buffer_a);
-    _post_processing_kernel->setArg(2, _image_max_reduction.get_reduction_result());
-    _post_processing_kernel->setArg(3, _max_value_running_average);
-    _post_processing_kernel->setArg(4, static_cast<cl_ulong>(_frame_number));
-    _post_processing_kernel->setArg(5, static_cast<cl_int>(get_smoothing_size()));
+    qcl::kernel_argument_list post_processing_arguments(_post_processing_kernel);
+    post_processing_arguments.push(pixels);
+    post_processing_arguments.push(*_buffer_a);
+    post_processing_arguments.push(_image_max_reduction.get_reduction_result());
+    post_processing_arguments.push(_max_value_running_average);
+    post_processing_arguments.push(static_cast<cl_ulong>(_frame_number));
+    post_processing_arguments.push(static_cast<cl_int>(get_smoothing_size()));
 
     cl::Event post_processor_run;
     err = _ctx->get_command_queue(0).enqueueNDRangeKernel(*_post_processing_kernel,
@@ -249,7 +261,7 @@ private:
       effective_width = (_width / _work_group_size + 1) * _work_group_size;
     if(effective_height % _work_group_size != 0)
       effective_height = (_height / _work_group_size + 1) * _work_group_size;
-    return {effective_width, effective_height};
+    return {{effective_width, effective_height}};
   }
 
   std::shared_ptr<cl::Image2D> create_image_buffer(std::size_t width, 

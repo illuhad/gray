@@ -1,5 +1,6 @@
 /*
- * This file is part of gray, a free, GPU accelerated, realtime pathtracing engine,
+ * This file is part of gray, a free, GPU accelerated, realtime pathtracing
+ * engine,
  * Copyright (C) 2016  Aksel Alpay
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,58 +23,57 @@
 #include <functional>
 #include <string>
 
+// Make sure glew.h is included before gl.h
+#include <GL/glew.h>
+
 #include <GL/freeglut.h>
 
 class gl_renderer
 {
 public:
-
   static gl_renderer& instance()
   {
     static gl_renderer r;
     return r;
   }
-  
-  void init(const std::string& title,
-              std::size_t width, std::size_t height,
-              int argc, char** argv);
-  
+
+  void init(const std::string& title, std::size_t width, std::size_t height,
+            int argc, char** argv);
+
   ~gl_renderer();
-  
+
   void close();
-  
+
   void render_loop();
-  
-  
-  void on_display(std::function<void ()> f);
-  void on_keyboard(std::function<void (unsigned char, int, int)> f);
-  void on_reshape(std::function<void(int,int)> f);
-  void on_mouse(std::function<void(int,int,int,int)> f);
-  //void on_mouse_wheel(std::function<void(int, int, int, int)> f);
+
+  void on_display(std::function<void()> f);
+  void on_keyboard(std::function<void(unsigned char, int, int)> f);
+  void on_reshape(std::function<void(int, int)> f);
+  void on_mouse(std::function<void(int, int, int, int)> f);
+  // void on_mouse_wheel(std::function<void(int, int, int, int)> f);
   void on_motion(std::function<void(int, int)> f);
   void on_idle(std::function<void()> f);
-  
-  std::size_t get_width() const
-  { return _width; }
-  
-  std::size_t get_height() const
-  { return _height; }
-  
+
+  std::size_t get_width() const { return _width; }
+
+  std::size_t get_height() const { return _height; }
+
   void toggle_fullscreen(bool fullescreen);
   bool is_fullscreen() const;
-  
+
   void save_png_screenshot(const std::string& name) const;
+
 private:
   gl_renderer();
   void post_redisplay();
-  
+
   int _width;
   int _height;
   int _window_handle;
-  
+
   bool _is_fullscreen;
-  
-  friend void glut_reshape_func(int,int);
+
+  friend void glut_reshape_func(int, int);
   friend void glut_display_func();
   friend void glut_keyboard_func(unsigned char c, int x, int y);
   friend void glut_mouse_func(int button, int state, int x, int y);
@@ -87,6 +87,6 @@ private:
   std::function<void(int, int, int, int)> _mouse_func;
   std::function<void(int, int)> _motion_func;
   std::function<void()> _idle_func;
-  std::function<void(int,int,int,int)> _mouse_wheel_func;
+  std::function<void(int, int, int, int)> _mouse_wheel_func;
 };
 #endif
